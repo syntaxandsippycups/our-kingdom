@@ -1,0 +1,220 @@
+{
+  "title": "Our Kingdom: Five Years, One Heart",
+  "relationshipStart": "June 2020",
+  "weddingDate": "October 23, 2021",
+  "sourceNotes": "The vows and anniversary declaration in this file are original supplied quotations. Other dialogue is fictional game writing and is not presented as historical speech. Optional personal memories are faithful summaries from the supplied story bible; all gameplay narration is fictional unless marked as an original quotation.",
+  "originalVows": [
+    "Since I was a little girl I always dreamed of my future family specially my kids their names what they’d be like. But I never dreamed of a husband. I think that’s because I couldn’t dream of anyone more perfect for me than you.",
+    "I am most thankful for the way you love me, that your love for me always reminds me of God’s love for me. It’s safe and secure, it never leaves me questioning or doubting. Your love constantly reminds me of who I am in Christ, loved, accepted, worthy, and complete",
+    "I know that marriage is metaphor for Christ and the Church. A picture of God’s covenant love for us. So today Aaron I promise to do my best to always reflect Christ’s love for you through the way I love you too.",
+    "I think my vows fall into one category and that is I vow to continually grow to be more like Jesus, to always pursue Christ and seek to grow deeper in my relationship with the Lord",
+    "I think if I uphold my vow to ways follow Christ’s example then the following should come easily",
+    "I promise to lay down my selfish desires and always consider your needs",
+    "I promise to submit to your leadership not only willingly but joyfully",
+    "I promise to uphold the covenant of marriage always, and may my devotion to you be like that of the Lords to us. Like if and when you aren’t “your part” I promise to love and serve you even then",
+    "I promise to not put the weight of our circumstances on you but to always lay it at the feet of Jesus",
+    "Aaron I promise to always lay you at the feet of Jesus",
+    "I promise to follow you wherever the Lord may lead you and I vow to point you back to the Lord should you happen to lose your way",
+    "I vow to always extend to you the grace, mercy, and forgiveness that the Lord has poured out over me",
+    "Aaron I love you. I am super pumped I to get to be your wife and serve God alongside you for the rest of our lives. Overall I think it’s gonna be pretty sick"
+  ],
+  "ceremonyExcerpts": [
+    "I couldn’t dream of anyone more perfect for me than you.",
+    "I vow to continually grow to be more like Jesus",
+    "I vow to always extend to you the grace, mercy, and forgiveness that the Lord has poured out over me",
+    "Overall I think it’s gonna be pretty sick"
+  ],
+  "levelFiveCallback": "We didn't know everything those promises would ask of us.",
+  "anniversaryLetter": "Aaron,\n\nFive years ago, I made a promise to you.\n\nI don't think either of us understood everything that promise would ask of us.\n\nI see how hard you work for our family.\n\nI see the nights you get up with the kids so I can sleep.\n\nI see the things you fix, the responsibilities you carry, and the little ways you try to make my life easier.\n\nI know I don't always say thank you.\n\nAnd I know that sometimes, especially when I'm tired or overwhelmed, I don't make you feel as loved or appreciated as you deserve.\n\nBut I see you.\n\nOne of the things I'm most grateful for is that you haven't stopped trying.\n\nNot when life got busy.\n\nNot when we were exhausted.\n\nNot when things were difficult between us.\n\nI see the effort you make.\n\nAnd I want you to know that you are more than your struggles or your mistakes to me.\n\nI don't know everything the next five years will hold.\n\nI hope there's more laughter.\n\nMore traveling.\n\nMore time for the things we love.\n\nMore late-night conversations.\n\nMore ordinary days where we get to simply enjoy being together.\n\nI hope we keep learning how to love one another better.\n\nAnd I hope we never stop believing that God can continue to do beautiful things in our lives and our marriage.\n\nAfter five years, I still choose you because even after seeing the beautiful, the messy, the hard, and the parts of each other we never could have anticipated, I still believe in us. Not because loving you has always been easy, or because we've gotten everything right, but because you're still the person I want beside me as we figure it all out. We've grown, we've changed, we've hurt, we've healed, and we're still learning how to love each other well. And if these five years have taught me anything, it's that love isn't just a feeling we fall into. It's a choice we keep making. And through every season, every version of us, and every unknown still ahead, I want to keep making that choice with you.",
+  "familyMembers": [
+    {
+      "name": "Naomi Marie",
+      "born": "October 25, 2022",
+      "portraitNote": "Sweet, observant, nurturing; loves dresses and notices everything."
+    },
+    {
+      "name": "Matthew Dion",
+      "born": "January 15, 2024",
+      "portraitNote": "Adventurous, energetic, and full of big feelings; shares “We da boys” with Dad."
+    },
+    {
+      "name": "Maliyah Nicole",
+      "born": "July 1, 2025",
+      "portraitNote": "Determined, expressive, affectionate, and ready to join her siblings."
+    },
+    {
+      "name": "Baby sister",
+      "status": "Expected as of the supplied story bible; not yet born in this story timeline."
+    }
+  ],
+  "optionalMemories": [
+    {
+      "id": "reunion",
+      "title": "Two paths, then Upward",
+      "eyebrow": "January 2021 · a second chance",
+      "body": "You called it quits in August, then kept missing the kindness and ease you found with each other. A few months later, there you were on Upward again. Raiven suggested friendship at first, but the two of you knew there was still something there.",
+      "memory": "That pause in 2020, then finding each other again on Upward in January.",
+      "achievement": "SECOND CHANCES"
+    },
+    {
+      "id": "proposal",
+      "title": "The question may or may not have been asked",
+      "eyebrow": "Easter Sunday · the ring question",
+      "body": "After church and family photos, Aaron pulled out the ring. Raiven remembers no question. Aaron is pretty sure he asked. She asked what he was doing; he explained he was trying to ask her to marry him. The debate is still part of the story.",
+      "memory": "The backyard proposal after Easter church: an affectionate disagreement over whether the question was asked.",
+      "achievement": "QUESTIONABLE PROPOSAL"
+    },
+    {
+      "id": "warmth",
+      "title": "Hand warmers for the bride",
+      "eyebrow": "October 23, 2021 · a chilly ceremony",
+      "body": "It was cold outside, and Raiven was freezing in her strapless dress. While everyone gathered to pray, hand warmers started making their way to the bride. The leaves waited until after the honeymoon to change color.",
+      "memory": "The cold outdoor ceremony, hand warmers, and late-arriving fall leaves.",
+      "achievement": "FOR BETTER OR FOR FREEZING"
+    },
+    {
+      "id": "colors",
+      "title": "The blue suits stay",
+      "eyebrow": "A little wedding-day debate",
+      "body": "Raiven picked the fall colors. Aaron picked bright blue suits. They did not exactly match—but the blue suits made it into the wedding photos, and they still make you smile.",
+      "memory": "The friendly color dispute: a fall palette and Aaron’s bright blue wedding-party suits.",
+      "achievement": "THE BLUE SUITS STAY"
+    },
+    {
+      "id": "honeymoon",
+      "title": "The mystery daiquiri",
+      "eyebrow": "Bolongo Bay · the daiquiri mystery",
+      "body": "Raiven found the best virgin strawberry daiquiris at Bolongo Bay and had several every day. She has never found one that good back home. Aaron still suspects there was a little something extra in them.",
+      "memory": "The honeymoon daiquiri mystery at Bolongo Bay Beach Resort.",
+      "achievement": "THE MYSTERY DAIQUIRI"
+    },
+    {
+      "id": "number-game",
+      "title": "The number game",
+      "eyebrow": "Family game night · pick a number",
+      "body": "You picked a number from 1 to 100. Raiven went looking for a life milestone; Aaron started narrowing it down—odd or even, above or below 50, then what the digits could tell him. Two very different ways to get to the same answer.",
+      "memory": "The number game: Raiven used life milestones; Aaron used systematic elimination.",
+      "achievement": "PATTERN RECOGNIZED"
+    },
+    {
+      "id": "we-da-boys",
+      "title": "We da boys",
+      "eyebrow": "Family memory · Matthew and Dad",
+      "body": "Matthew is adventurous and full of big feelings. He and Aaron share the playful phrase “We da boys.” The game treats the kids as companions and family, never as enemies.",
+      "memory": "Matthew and Aaron’s “We da boys” ritual.",
+      "achievement": "WE DA BOYS"
+    },
+    {
+      "id": "crusty-dusty",
+      "title": "Mama, keep this one safe",
+      "eyebrow": "Family memory · Naomi",
+      "body": "Naomi is sweet, affectionate, and remarkably observant. She has called out Dad for losing things and being “crusty dusty,” and learned to tell people to give important items to Mama because Dada loses them. The teasing stays gentle.",
+      "memory": "Naomi’s observant “crusty dusty” teasing and her plan for keeping important things safe.",
+      "achievement": "CRUSTY DUSTY"
+    },
+    {
+      "id": "horse-express",
+      "title": "Horsey Express",
+      "eyebrow": "Family memory",
+      "body": "The children climb aboard for horsey rides with Dad. A little home becomes a whole adventure when everyone is together.",
+      "memory": "The kids’ horsey rides with Dad.",
+      "achievement": "HORSEY EXPRESS"
+    },
+    {
+      "id": "seafood",
+      "title": "Three to one",
+      "eyebrow": "Family vote",
+      "body": "Aaron does not like seafood. Raiven does, and the children are increasingly willing to eat fish. The vote is becoming three to one, and Aaron is being gently outnumbered. The children are increasingly willing to eat fish, and the vote keeps moving against Aaron.",
+      "memory": "The family seafood vote: Aaron is being outnumbered three to one.",
+      "achievement": "OUTVOTED: SEAFOOD EDITION"
+    },
+    {
+      "id": "office",
+      "title": "The Office of Shame",
+      "eyebrow": "The Office of Shame · Aaron’s setup rules apply",
+      "body": "The desk can get pretty crowded, but the tower and cables have one proper home: the left side. Some rules are sacred.",
+      "memory": "The Office of Shame: messy desk, computer tower and cables kept on the left.",
+      "achievement": "CABLE MANAGEMENT NOT FOUND"
+    },
+    {
+      "id": "clarinet",
+      "title": "A note for later",
+      "eyebrow": "Aaron’s music",
+      "body": "Aaron played music growing up, including paid performances with his dad. He bought a clarinet again a few years ago and would still love to play with a local symphony someday. Family life is full right now; the dream is still there.",
+      "memory": "Aaron’s musical history and the clarinet he still hopes to play more.",
+      "achievement": "A NOTE FOR LATER"
+    },
+    {
+      "id": "california",
+      "title": "The long way home",
+      "eyebrow": "Engagement trip · California",
+      "body": "When Raiven traveled to California to meet Aaron’s extended family, they stayed separately: Aaron with his parents in Altadena and Raiven with her friend Jamie in Lancaster. Aaron repeatedly drove the long distance to drop her off and pick her up. The long drives let Raiven spend time with family while respecting the boundaries they had chosen before marriage.",
+      "memory": "Aaron’s long drives between Altadena and Lancaster while Raiven met his extended family.",
+      "achievement": "THE LONG WAY HOME"
+    },
+    {
+      "id": "invested",
+      "title": "Invested in us",
+      "eyebrow": "Early marriage · a practical kind of love",
+      "body": "Not long after the wedding, Aaron paid off Raiven’s remaining student loans and car loan. He wanted to make the road ahead a little lighter for both of you.",
+      "memory": "Aaron paid off Raiven’s remaining student loans and car loan shortly after the wedding.",
+      "achievement": "INVESTED IN US"
+    },
+    {
+      "id": "road-trip",
+      "title": "The long road south",
+      "eyebrow": "Family road trip · Christmas 2025",
+      "body": "The family drove from Michigan to Texas, with stops through Ohio, Nashville, Memphis, Arkansas, and Illinois. The map remembers the long route and all the small family adventures along the way.",
+      "memory": "The Christmas 2025 family road trip from Michigan to Texas and its many stops.",
+      "achievement": "MILE MARKER MEMORY"
+    },
+    {
+      "id": "alternator",
+      "title": "Alternator boss fight",
+      "eyebrow": "Cincinnati-area family trip",
+      "body": "The family van’s alternator failed during a Cincinnati-area trip. Aaron missed the planned Ark Encounter and Creation Museum visits while dealing with the vehicle. The family still went to the zoo and got home after repairs.",
+      "memory": "The Cincinnati-area alternator failure, the missed planned stops, and the zoo day that still happened.",
+      "achievement": "ALTERNATOR BOSS FIGHT"
+    },
+    {
+      "id": "date-night",
+      "title": "Early bird special",
+      "eyebrow": "Old-soul date nights",
+      "body": "Raiven planned a Toledo candlelight R&B concert and a Detroit Princess cruise. Both drew crowds noticeably older than the couple. A good date is a good date.",
+      "memory": "The candlelight R&B concert and Detroit Princess cruise that felt like old-soul date nights.",
+      "achievement": "EARLY BIRD SPECIAL"
+    },
+    {
+      "id": "fan",
+      "title": "The ceiling fan debate",
+      "eyebrow": "A harmless home puzzle",
+      "body": "Raiven likes sleeping with the bedroom ceiling fan on. Aaron thinks it contributes to dry skin and lips. Raiven suspects lotion and chapstick might be the missing variables. The fan can keep spinning.",
+      "memory": "The ceiling fan debate, including the lotion and chapstick counterargument.",
+      "achievement": "NIGHT AIR NEGOTIATOR"
+    },
+    {
+      "id": "lost-item",
+      "title": "The thing Dad misplaced",
+      "eyebrow": "Naomi’s lost-and-found system",
+      "body": "Naomi has a plan for the things Dad misplaces: give them to Mama. Honestly, she may be onto something.",
+      "memory": "Naomi’s lost-item rule: give the important things to Mama because Dada loses them.",
+      "achievement": "THE LOST ITEM"
+    },
+    {
+      "id": "family-night",
+      "title": "The living-room archive",
+      "eyebrow": "Home memory · the little rituals",
+      "body": "Family movie nights, Queen and Beatles songs, favorite snacks and drinks, Christmas lights, an inflatable air mattress, the homeschool dining table, a toy-filled playroom, and the bedroom ceiling fan all make this house theirs. The fan debate remains unresolved: Raiven likes it on; Aaron blames it for dry skin and lips; she recommends lotion and chapstick.",
+      "memory": "The living-room archive: movie nights, music, snacks, Christmas lights, the inflatable air mattress, homeschool table, and the ceiling-fan debate.",
+      "achievement": "HOME IS A COLLECTION OF SMALL THINGS"
+    },
+    {
+      "id": "hands",
+      "title": "A quiet companion gesture",
+      "eyebrow": "A little moment, when it feels right",
+      "body": "Aaron likes holding hands and cuddling; Raiven tends to be less touchy. Sometimes he reaches for her hand, and she gets to decide if she wants to take it.",
+      "memory": "A hand offered on the path, and a little moment shared when she was ready.",
+      "achievement": "A GESTURE, GIVEN FREELY"
+    }
+  ]
+}
