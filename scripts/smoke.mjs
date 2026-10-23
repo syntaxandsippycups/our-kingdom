@@ -83,6 +83,32 @@ try {
   const source = await readFile(new URL("../src/main.ts", import.meta.url), "utf8");
   const platformSource = await readFile(new URL("../src/platform-games.ts", import.meta.url), "utf8");
   const htmlSource = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  for (const required of [
+    "Pack for the outing",
+    "Restore the four-season calendar",
+    "Find the five keepsakes",
+    "Reach the wooden arch",
+    "Carrom against the computer",
+    "Crack the number",
+    "Set the wedding colors",
+    "OBJECTIVE",
+    "CONTROLS",
+    "Start challenge",
+  ]) {
+    if (!source.includes(required) && !platformSource.includes(required)) {
+      throw new Error(`Missing minigame briefing: ${required}`);
+    }
+  }
+  if (
+    !platformSource.includes("let frameFn: ((time: number) => void) | undefined") ||
+    !platformSource.includes("if (!disposed && started) raf = requestAnimationFrame(draw)") ||
+    !source.includes("running = false, started = false") ||
+    !source.includes("if (started && !complete && !defeated)") ||
+    !source.includes('if(!started||ended||turn!=="raiven"||moving)return;')
+  ) {
+    throw new Error("Minigame timer or hazard logic is not gated behind Start");
+  }
+  console.log("PASS minigame briefings · objectives, controls, and start-gated clocks and hazards");
   if (storyData.optionalMemories.some((item) => item.id === "office") || source.includes('["side-office"')) {
     throw new Error("The removed Office of Shame memory is still available");
   }
@@ -109,7 +135,7 @@ try {
   }
   console.log("PASS regressions · number entry, paused level hazards, removed office memory, and bedtime wakeups");
   const playablePlatform = await transform(platformSource, { loader: "ts", format: "esm", target: "es2022" });
-  const { movePlayer, canFinishInvisibleLoad, careWindowExpired, choreCanBeUndone } = await import(`data:text/javascript;base64,${Buffer.from(playablePlatform.code).toString("base64")}`);
+  const { movePlayer, canFinishInvisibleLoad, careWindowExpired, choreCanBeUndone, energyMovementMultiplier } = await import(`data:text/javascript;base64,${Buffer.from(playablePlatform.code).toString("base64")}`);
   if (!canFinishInvisibleLoad(8,3,false,false) || canFinishInvisibleLoad(8,3,true,false) || canFinishInvisibleLoad(8,3,false,true) || careWindowExpired(9,10,false) || !careWindowExpired(10,10,false) || careWindowExpired(30,10,true) || !choreCanBeUndone(2) || choreCanBeUndone(3)) {
     throw new Error("Invisible Load completion, urgent-care deadline, or three-undo protection logic is incorrect");
   }
@@ -140,13 +166,17 @@ try {
   if (!source.includes("const safeX = 2230, safeY = 690;") || !source.includes("body.reset(safeX, safeY)") || !source.includes("this.cameras.main.centerOn(safeX, safeY)")) {
     throw new Error("Leaving the Level 4 day challenge must return Aaron to a clear, saved route near the next story marker");
   }
-  if (!platformSource.includes("const dayLength=480") || !platformSource.includes("careSequence<repeatedCareGoal*2") || !platformSource.includes("careDeadline=elapsed+10") || !platformSource.includes('id="load-urgent"') || !platformSource.includes('className="load-accident-notice"') || !platformSource.includes("graceUsed=true;left=90;")) {
-    throw new Error("The Invisible Load needs a visible timer, sequential urgent care, an accident recovery popup, and a fair overtime window");
+  if (!platformSource.includes("const dayLength=300") || !platformSource.includes('id="load-time">05:00') || !platformSource.includes("careSequence<repeatedCareGoal*2") || !platformSource.includes("careDeadline=elapsed+10") || !platformSource.includes('id="load-urgent"') || !platformSource.includes('className="load-accident-notice"') || !platformSource.includes("graceUsed=true;left=90;")) {
+    throw new Error("The Invisible Load needs a five-minute timer, sequential urgent care, an accident recovery popup, and a fair overtime window");
   }
   if (!platformSource.includes("choreCanBeUndone(task.undoCount)") || !platformSource.includes("task.undoCount++") || !platformSource.includes("underWatch") || !platformSource.includes("choresDone(),playsDone(),!!activeCare,accidentActive")) {
     throw new Error("The kids’ chore interruptions, safe-after-three rule, and immediate checklist win are missing");
   }
   console.log("PASS Level 4 return anchor and timed family-day challenge · clear route, urgent rotating care, finite task undo, accident recovery, overtime grace");
+  if (energyMovementMultiplier(100)!==1 || energyMovementMultiplier(50)!==1 || !(energyMovementMultiplier(49)<1) || energyMovementMultiplier(0)!==.4 || !platformSource.includes("if(energy<=0){msg=\"OUT OF ENERGY") || !platformSource.includes("Coffee is always available") || platformSource.includes("stop.used") || !platformSource.includes('classList.toggle("load-potty-emergency",activeCare==="potty"&&!done)') || source.includes('["side-alternator"') || source.includes('["side-fan"')) {
+    throw new Error("The Invisible Load needs below-50% fatigue, an energy-zero coffee gate, unlimited coffee, a Matthew emergency flash, and no removed Level 5 memories");
+  }
+  console.log("PASS requested Invisible Load and Level 5 tweaks · five-minute base timer, speed decreases only below 50%, zero-energy coffee gate, unlimited refills, red potty alert, removed alternator and fan markers");
   if (!platformSource.includes("left=Math.max(0,left-30)") || !platformSource.includes("p.hurt=1.15") || !platformSource.includes("HIT! −30 SECONDS") || !platformSource.includes("−30 SECONDS", platformSource.indexOf("drawAaron(ctx,app.hero,p,cam,time,carry>=0")) || !platformSource.includes("const carryX=x+(p.face>0?47:11)")) {
     throw new Error("Toy hits need visible −30 second feedback, blinking, and a facing-aware carry pose");
   }

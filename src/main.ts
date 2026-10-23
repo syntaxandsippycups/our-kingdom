@@ -120,6 +120,18 @@ function closeMinigame(scene: KingdomScene) {
   scene.refreshHud();
 }
 
+function challengeIntroMarkup(eyebrow: string, title: string, objective: string, controls: string) {
+  return `<div class="challenge-intro" role="dialog" aria-modal="true" aria-labelledby="challenge-title"><section class="challenge-intro-card"><div class="eyebrow">${esc(eyebrow)} · BEFORE YOU START</div><h2 id="challenge-title">${esc(title)}</h2><div class="challenge-instructions"><div><b>OBJECTIVE</b><p>${esc(objective)}</p></div><div><b>CONTROLS</b><p>${esc(controls)}</p></div></div><p class="challenge-ready">Take a second to get oriented. The clock and challenge begin when you’re ready.</p><div class="challenge-actions"><button class="btn" id="challenge-start">Start challenge</button><button class="btn secondary" id="challenge-cancel">Back to the story</button></div></section></div>`;
+}
+
+function wireChallengeIntro(onStart: () => void, onCancel: () => void) {
+  root.querySelector<HTMLButtonElement>("#challenge-start")!.onclick = () => {
+    root.querySelector(".challenge-intro")?.remove();
+    onStart();
+  };
+  root.querySelector<HTMLButtonElement>("#challenge-cancel")!.onclick = onCancel;
+}
+
 function familyPackGame(scene: KingdomScene, marker: Marker) {
   setModalOpen(true);
   const items = [
@@ -131,9 +143,10 @@ function familyPackGame(scene: KingdomScene, marker: Marker) {
     { id:"charger", name:"Backup charger", icon:"🔌", need:false },
     { id:"spreadsheet", name:"A spreadsheet", icon:"📊", need:false },
   ];
-  const packed = new Set<string>(); let held = ""; const capacity=5;
+  const packed = new Set<string>(); let held = ""; const capacity=5; let started=false;
   const draw = (note="") => {
-    root.innerHTML=`<section class="pack-game"><header class="mini-head"><div><div class="eyebrow">The Beautiful Chaos · family outing prep</div><h1>Everybody ready?</h1><p>Pack the diaper bag. There’s room for five things.</p></div><button class="btn secondary" id="pack-leave">Back to the house</button></header><div class="pack-board"><div class="pack-table"><div class="pack-note">ON THE TABLE</div><div class="pack-items">${items.filter(x=>!packed.has(x.id)).map(x=>`<button class="pack-item ${held===x.id?"selected":""}" data-item="${x.id}"><span>${x.icon}</span>${x.name}</button>`).join("")}</div><p>${note||"Tap an item to pick it up, then tap the open bag."}</p></div><div class="pack-bag" id="pack-bag" role="button" tabindex="0"><span>🎒</span><b>THE DIAPER BAG</b><small>${packed.size} / ${capacity} packed</small><div class="packed-list">${[...packed].map(id=>`<i>${items.find(x=>x.id===id)?.icon}</i>`).join("")||"Drop items here"}</div></div></div><div class="pack-footer"><span>Essentials: diapers · wipes · spare clothes · snacks</span><button class="btn" id="pack-finish">Zip it up</button></div></section>`;
+    root.innerHTML=`<section class="pack-game"><header class="mini-head"><div><div class="eyebrow">The Beautiful Chaos · family outing prep</div><h1>Everybody ready?</h1><p>Pack the diaper bag. There’s room for five things.</p></div><button class="btn secondary" id="pack-leave">Back to the house</button></header><div class="pack-board"><div class="pack-table"><div class="pack-note">ON THE TABLE</div><div class="pack-items">${items.filter(x=>!packed.has(x.id)).map(x=>`<button class="pack-item ${held===x.id?"selected":""}" data-item="${x.id}"><span>${x.icon}</span>${x.name}</button>`).join("")}</div><p>${note||"Tap an item to pick it up, then tap the open bag."}</p></div><div class="pack-bag" id="pack-bag" role="button" tabindex="0"><span>🎒</span><b>THE DIAPER BAG</b><small>${packed.size} / ${capacity} packed</small><div class="packed-list">${[...packed].map(id=>`<i>${items.find(x=>x.id===id)?.icon}</i>`).join("")||"Drop items here"}</div></div></div><div class="pack-footer"><span>Essentials: diapers · wipes · spare clothes · snacks</span><button class="btn" id="pack-finish">Zip it up</button></div>${started?"":challengeIntroMarkup("Beautiful Chaos","Pack for the outing","Fit all four essentials and one useful extra into the five-slot diaper bag.","Click an item, then click the bag. Click a packed item to remove it. Select diapers, wipes, a spare outfit, and snacks.")}</section>`;
+    if(!started)wireChallengeIntro(()=>{started=true;draw();},()=>closeMinigame(scene));
     root.querySelector<HTMLButtonElement>("#pack-leave")!.onclick=()=>closeMinigame(scene);
     root.querySelectorAll<HTMLButtonElement>("[data-item]").forEach(b=>b.onclick=()=>{held=b.dataset.item!;draw();});
     root.querySelector<HTMLElement>("#pack-bag")!.onclick=()=>{if(!held){toast("Pick something up from the table first.");return;}if(packed.size>=capacity){draw("The bag is full. Tap something inside to take it back out.");return;}packed.add(held);held="";draw();};
@@ -158,6 +171,7 @@ function seasonPathGame(scene: KingdomScene, marker: Marker) {
   let pencil = false;
   let feedback = "Each row and column must contain Spring, Summer, Autumn, and Winter once.";
   let hintsUsed = 0;
+  let started = false;
   const notes = new Map<number, Set<Season>>();
   const clearBoardErrors = () => root.querySelectorAll(".logic-cell.conflict").forEach((cell) => cell.classList.remove("conflict"));
   const isSolved = () => {
@@ -180,6 +194,10 @@ function seasonPathGame(scene: KingdomScene, marker: Marker) {
   const draw = () => {
     const filled = board.filter(Boolean).length;
     root.innerHTML = `<section class="season-game"><header class="mini-head"><div><div class="eyebrow">Through Every Season · logic mechanism</div><h1>Restore the Heartlight calendar.</h1><p>Place each season once in every row and every column. Five stones are fixed; solve the rest.</p></div><button class="btn secondary" id="season-leave">Back to the path</button></header><div class="season-board"><div class="logic-intro"><b>THE FOUR-SEASON RULE</b><span>Each row and column gets one of each season. No duplicates.</span><span class="logic-count">${filled} / 16 placed</span></div><div class="logic-wrap"><div class="logic-grid" role="grid" aria-label="Four by four seasonal logic puzzle"><div class="logic-corner">YEAR</div>${seasons.map((season) => `<div class="logic-colhead">${season.icon}<small>${season.mark}</small></div>`).join("")}${Array.from({ length: 4 }, (_, row) => `<div class="logic-rowhead">${String(row + 1).padStart(2, "0")}</div>${Array.from({ length: 4 }, (_, col) => { const i = row * 4 + col; const value = board[i]; const season = seasons.find((s) => s.id === value); const pencilMarks = [...(notes.get(i) || [])].map((id) => seasons.find((s) => s.id === id)!.mark).join(" · "); return `<button class="logic-cell ${clues[i] ? "given" : ""} ${selected === i ? "selected" : ""}" role="gridcell" data-cell="${i}" aria-label="Row ${row + 1}, column ${col + 1}${season ? `, ${season.name}` : ", empty"}" ${clues[i] ? "disabled" : ""}>${season ? `<span class="logic-icon">${season.icon}</span><small>${season.name}</small>` : pencilMarks ? `<span class="logic-notes">${pencilMarks}</span>` : `<span class="logic-empty">${row + 1}.${col + 1}</span>`}${clues[i] ? `<i>CLUE</i>` : ""}</button>`; }).join("")}`).join("")}</div></div><div class="logic-tools"><div class="logic-tray">${seasons.map((season) => `<button class="logic-season" data-season="${season.id}" aria-label="Place ${season.name}"><span>${season.icon}</span>${season.name}</button>`).join("")}</div><div class="season-actions"><button class="btn ${pencil ? "secondary" : "ghost"}" id="season-pencil">${pencil ? "PENCIL ON" : "PENCIL NOTES"}</button><button class="btn secondary" id="season-hint" ${hintsUsed >= 3 ? "disabled" : ""}>Logic hint · ${3 - hintsUsed}</button><button class="btn ghost" id="season-reset">Clear my entries</button></div><p class="logic-feedback" aria-live="polite">${esc(feedback)}</p><p class="small">Select a stone, then a season. When all four rows and columns line up, the crossing opens by itself.</p></div></div></section>`;
+    if (!started) {
+      root.querySelector(".season-game")!.insertAdjacentHTML("beforeend", challengeIntroMarkup("Through Every Season", "Restore the four-season calendar", "Fill every open stone so each row and each column contains Spring, Summer, Autumn, and Winter exactly once.", "Click an empty stone, then choose a season. Use Pencil Notes for candidates, Logic Hint for a clue, and Clear My Entries to reset your placements. The five clue stones are fixed."));
+      wireChallengeIntro(() => { started = true; draw(); }, () => closeMinigame(scene));
+    }
     root.querySelector<HTMLButtonElement>("#season-leave")!.onclick = () => closeMinigame(scene);
     root.querySelectorAll<HTMLButtonElement>("[data-cell]").forEach((cell) => cell.onclick = () => { selected = Number(cell.dataset.cell); feedback = clues[selected] ? "That stone is part of the old inscription." : `Row ${Math.floor(selected / 4) + 1}, column ${(selected % 4) + 1} selected.`; draw(); });
     root.querySelectorAll<HTMLButtonElement>("[data-season]").forEach((button) => button.onclick = () => {
@@ -235,7 +253,7 @@ function weddingSearch(scene: KingdomScene, marker: Marker) {
     { id: "program", name: "Ceremony program", icon: "📖", x: 32, y: 71 },
   ];
   const found = new Set<string>();
-  let seconds = 240, mistakes = 0, hints = 3, running = true;
+  let seconds = 240, mistakes = 0, hints = 3, running = false, started = false;
   const clutter = [
     ["🕯️",9,62],["🍂",19,40],["🪑",25,77],["📷",35,50],["🎀",42,22],["🌼",58,54],["🥂",83,34],
     ["🕊️",89,58],["🧣",18,85],["🧥",29,31],["📜",38,75],["🕯️",57,20],["🍁",63,82],["🪞",72,48],
@@ -265,6 +283,10 @@ function weddingSearch(scene: KingdomScene, marker: Marker) {
       return [icons[(i*7)%icons.length]!, 5+((i*37+11)%90), 9+((i*53+17)%78)] as const;
     });
     root.innerHTML = `<section class="search-game" aria-label="Wedding hidden object game"><header class="mini-head"><div><div class="eyebrow">Wedding day · before the ceremony</div><h1>Where did those vows go?</h1><p>Search the full scene. The lookalikes are on purpose; the list marks the real items.</p></div><div class="search-tools"><b id="search-time">${timerText()}</b><span id="search-mistakes">MISCLICKS ${mistakes}</span><button class="btn secondary" id="search-hint">HINT · ${hints}</button><button class="btn ghost" id="search-leave">Back to the wedding</button></div></header><div class="search-layout"><div class="search-art" role="group" aria-label="Crowded wedding scene. Find the listed items among the decoys."><div class="search-clutter" aria-hidden="true">${[...clutter,...extraClutter].map(([icon,x,y],i)=>`<span style="--x:${x}%;--y:${y}%;--tilt:${(i%7-3)*9}deg">${icon}</span>`).join("")}</div>${items.map((item) => `<button class="search-object ${found.has(item.id) ? "found" : ""}" style="--x:${item.x}%;--y:${item.y}%" data-item="${item.id}" aria-label="Find ${item.name}" ${found.has(item.id) ? "disabled" : ""}><span>${item.icon}</span></button>`).join("")}<div class="search-note">4:00 · Find the five real items among the ceremony-day lookalikes</div></div><aside class="search-list"><div class="search-count">FOUND <b>${found.size}</b> / 5</div><div class="search-items">${items.map((item) => `<div class="search-row ${found.has(item.id) ? "found" : ""}"><span class="search-icon">${found.has(item.id) ? "✓" : item.icon}</span><span>${esc(item.name)}</span></div>`).join("")}</div><p class="small">Wrong clicks cost four seconds. Three hints are available; each costs 25 seconds.</p></aside></div></section>`;
+    if (!started) {
+      root.querySelector(".search-game")!.insertAdjacentHTML("beforeend", challengeIntroMarkup("Wedding day · before the ceremony", "Find the five keepsakes", "Recover the rings, bouquet, vow pages, boutonniere, and ceremony program from the crowded wedding scene before four minutes run out.", "Click the actual objects that match the list. Lookalikes count as a misclick and cost 4 seconds. A hint glints at the next item but costs 25 seconds; you have three."));
+      wireChallengeIntro(() => { started = true; running = true; }, leave);
+    }
     root.querySelector<HTMLButtonElement>("#search-leave")!.onclick = leave;
     root.querySelector<HTMLButtonElement>("#search-hint")!.onclick = () => {
       if(!hints){toast("No hints left. Search the scene carefully.");return;}
@@ -323,13 +345,15 @@ function aisleRun(scene: KingdomScene, marker: Marker) {
   const hero = new Image(); hero.src = "/assets/characters/aaron-walk-sheet.png";
   const keys = new Set<string>();
   const player = { x: 60, y: floor - 74, vx:0, vy: 0, hp: 3, attack: 0, invuln: 0, grounded: true, coyote:.12 };
-  let raf = 0, last = 0, complete = false, defeated = false, jumpBuffer = 0, attackRequest = false, walk = 0, facing = 1, lastHitX = -1000, hitFlash = 0, checkpointX=60;
-  const onKeyDown = (e: KeyboardEvent) => { const k = e.key.toLowerCase(); if ([" ", "arrowleft", "arrowright", "arrowup"].includes(k)) e.preventDefault(); keys.add(k); if ([" ", "arrowup", "w"].includes(k)) jumpBuffer = .18; if (k === "j") attackRequest = true; };
+  let raf = 0, last = 0, complete = false, defeated = false, jumpBuffer = 0, attackRequest = false, walk = 0, facing = 1, lastHitX = -1000, hitFlash = 0, checkpointX=60, started=false;
+  const onKeyDown = (e: KeyboardEvent) => { if(!started)return; const k = e.key.toLowerCase(); if ([" ", "arrowleft", "arrowright", "arrowup"].includes(k)) e.preventDefault(); keys.add(k); if ([" ", "arrowup", "w"].includes(k)) jumpBuffer = .18; if (k === "j") attackRequest = true; };
   const onKeyUp = (e: KeyboardEvent) => keys.delete(e.key.toLowerCase());
   window.addEventListener("keydown", onKeyDown); window.addEventListener("keyup", onKeyUp);
-  const bind = (id: string, key: string, action?: () => void) => { const b = root.querySelector<HTMLButtonElement>(`#${id}`)!; b.onpointerdown = (e) => { e.preventDefault(); if (action) action(); else keys.add(key); }; b.onpointerup = b.onpointerleave = () => keys.delete(key); };
+  const bind = (id: string, key: string, action?: () => void) => { const b = root.querySelector<HTMLButtonElement>(`#${id}`)!; b.onpointerdown = (e) => { e.preventDefault(); if(!started)return; if (action) action(); else keys.add(key); }; b.onpointerup = b.onpointerleave = () => keys.delete(key); };
   bind("runner-left", "arrowleft"); bind("runner-right", "arrowright"); bind("runner-jump", "", () => jumpBuffer = .18); bind("runner-attack", "", () => attackRequest = true);
   const leave = () => { cancelAnimationFrame(raf); window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); closeMinigame(scene); };
+  root.querySelector(".runner-game")!.insertAdjacentHTML("beforeend", challengeIntroMarkup("The Promise · wedding aisle", "Reach the wooden arch", "Make it to Raiven at the altar, jumping over the gaps and getting past five wedding jitters. Keep at least one heart.", "Move with A / D or ← / →. Jump with Space, W, or ↑. Press J or tap SWAT when a jitter is in range; jump over one instead. The gold flash warns that it is about to lunge. You have three hearts and checkpoints along the aisle."));
+  wireChallengeIntro(()=>{started=true;last=performance.now();keys.clear();jumpBuffer=0;},leave);
   const retry = () => {
     root.querySelector(".toybox-outcome")?.remove();
     obstacles.forEach((o) => { o.done = false; o.wind = 0; o.cooldown = 0; o.phase = 0; });
@@ -377,7 +401,7 @@ function aisleRun(scene: KingdomScene, marker: Marker) {
   };
   const draw = (time: number) => {
     const dt = Math.min(0.034, (time - last) / 1000 || 0); last = time;
-    if (!complete && !defeated) {
+    if (started && !complete && !defeated) {
       const dir = (keys.has("d") || keys.has("arrowright") ? 1 : 0) - (keys.has("a") || keys.has("arrowleft") ? 1 : 0);
       if(dir){walk += dt*13;facing=dir;}
       player.vx+=dir*2200*dt;if(!dir)player.vx*=Math.exp(-7*dt);player.vx=Math.max(-325,Math.min(325,player.vx));player.x=Math.max(0,Math.min(WORLD-70,player.x+player.vx*dt));
@@ -489,7 +513,7 @@ function startCarromGame(scene: KingdomScene, marker: Marker, replay = false) {
   type Side = "raiven" | "aaron";
   type Piece = { x: number; y: number; vx: number; vy: number; side: Side | "queen"; pocketed: boolean };
   setModalOpen(true);
-  root.innerHTML = `<article class="panel carrom-panel"><div class="eyebrow">June 2020 · playable first-date memory</div><h2>Carrom · Raiven vs Computer Player</h2><p class="carrom-help">Drag the striker backward and release. Your striker resets to your baseline every turn; the computer uses the far baseline. Pocket your own discs for another shot. The red queen needs a cover: pocket one of your discs on that shot or your next shot. A covered queen earns a bonus point. First to 3 points wins.</p><div class="carrom-score"><span>YOU · <b id="carrom-you">0</b></span><span>COMPUTER · <b id="carrom-cpu">0</b></span><span id="carrom-turn">YOUR TURN</span></div><canvas id="carrom-board" width="640" height="640" aria-label="Playable carrom board"></canvas><div class="actions carrom-actions"><button class="btn secondary" id="carrom-back">${replay ? "Back to the path" : "Leave match"}</button><button class="btn ghost" id="carrom-replay" hidden>Play again</button></div></article>`;
+  root.innerHTML = `<article class="panel carrom-panel challenge-host"><div class="eyebrow">June 2020 · playable first-date memory</div><h2>Carrom · Raiven vs Computer Player</h2><p class="carrom-help">Drag the striker backward and release. Your striker resets to your baseline every turn; the computer uses the far baseline. Pocket your own discs for another shot. The red queen needs a cover: pocket one of your discs on that shot or your next shot. A covered queen earns a bonus point. First to 3 points wins.</p><div class="carrom-score"><span>YOU · <b id="carrom-you">0</b></span><span>COMPUTER · <b id="carrom-cpu">0</b></span><span id="carrom-turn">YOUR TURN</span></div><canvas id="carrom-board" width="640" height="640" aria-label="Playable carrom board"></canvas><div class="actions carrom-actions"><button class="btn secondary" id="carrom-back">${replay ? "Back to the path" : "Leave match"}</button><button class="btn ghost" id="carrom-replay" hidden>Play again</button></div>${challengeIntroMarkup("A first-date rematch", "Carrom against the computer", "Pocket your color and cover the red queen to earn its bonus point. Reach 3 points before the Computer Player.", "Drag the striker along your baseline to aim, pull it backward to set power, and release to shoot. The striker resets to your baseline each turn. Pocket one of your discs to keep your turn; the queen needs a cover on the same shot or your next shot.")}</article>`;
   const canvas = root.querySelector<HTMLCanvasElement>("#carrom-board")!;
   const ctx = canvas.getContext("2d")!;
   const youEl = root.querySelector<HTMLElement>("#carrom-you")!;
@@ -509,6 +533,7 @@ function startCarromGame(scene: KingdomScene, marker: Marker, replay = false) {
   let dragging = false;
   let aim = { x: 0, y: 0 };
   let ended = false;
+  let started = false;
   let raf = 0;
   let closed = false;
   let lastShot = 0;
@@ -548,7 +573,7 @@ function startCarromGame(scene: KingdomScene, marker: Marker, replay = false) {
     ctx.fillStyle="#f5e7ca";ctx.font="600 13px system-ui";ctx.textAlign="center";ctx.fillText(ended?"MATCH COMPLETE":turn === "raiven" ? "PLACE ON YOUR BASELINE · PULL BACK TO SHOOT" : "COMPUTER BASELINE",320,622);
   };
   const screenPoint = (ev: PointerEvent) => { const r=canvas.getBoundingClientRect();return {x:(ev.clientX-r.left)*640/r.width,y:(ev.clientY-r.top)*640/r.height}; };
-  canvas.onpointerdown=(ev)=>{if(ended||turn!=="raiven"||moving)return;const p=screenPoint(ev);if(p.y<478||p.y>538)return;striker.x=Math.max(135,Math.min(505,p.x));striker.y=508;dragging=true;aim=p;canvas.setPointerCapture(ev.pointerId);draw();};
+  canvas.onpointerdown=(ev)=>{if(!started||ended||turn!=="raiven"||moving)return;const p=screenPoint(ev);if(p.y<478||p.y>538)return;striker.x=Math.max(135,Math.min(505,p.x));striker.y=508;dragging=true;aim=p;canvas.setPointerCapture(ev.pointerId);draw();};
   canvas.onpointermove=(ev)=>{if(dragging){aim=screenPoint(ev);draw();}};
   canvas.onpointerup=(ev)=>{if(!dragging)return;dragging=false;const p=screenPoint(ev);let dx=striker.x-p.x,dy=striker.y-p.y;const mag=Math.hypot(dx,dy);if(mag>7){const pow=Math.min(17,mag*.075);striker.vx=dx/mag*pow;striker.vy=dy/mag*pow;moving=true;ownPocketedThisShot=false;lastShot=Date.now();}draw();};
   const settle = () => {
@@ -578,10 +603,11 @@ function startCarromGame(scene: KingdomScene, marker: Marker, replay = false) {
       }}
   };
   const computerShot = () => {if(closed||ended||turn!=="aaron")return;striker.x=320;striker.y=112;const target=pieces.filter(p=>!p.pocketed&&p.side==="aaron").sort((a,b)=>Math.hypot(a.x-striker.x,a.y-striker.y)-Math.hypot(b.x-striker.x,b.y-striker.y))[0] || pieces.find(p=>!p.pocketed&&p.side==="queen");if(!target){turn="raiven";striker.y=508;turnEl.textContent="YOUR TURN";return;}const hole=pockets.slice().sort((a,b)=>Math.hypot(target.x-a.x,target.y-a.y)-Math.hypot(target.x-b.x,target.y-b.y))[0]!;let dx=hole.x-target.x,dy=hole.y-target.y,d=Math.hypot(dx,dy)||1;let tx=target.x-dx/d*23-striker.x,ty=target.y-dy/d*23-striker.y,mag=Math.hypot(tx,ty)||1;striker.vx=tx/mag*(8+Math.random()*2);striker.vy=ty/mag*(8+Math.random()*2);moving=true;ownPocketedThisShot=false;lastShot=Date.now();};
-  const tick=()=>{if(closed)return;if(moving)settle();draw();raf=requestAnimationFrame(tick);};
+  const tick=()=>{if(closed||!started)return;if(moving)settle();draw();raf=requestAnimationFrame(tick);};
   root.querySelector<HTMLButtonElement>("#carrom-back")!.onclick=close;
   replayBtn.onclick=()=>reset();
-  tick();
+  draw();
+  wireChallengeIntro(()=>{started=true;tick();},close);
 }
 function hudUpdate() {
   if (!activeScene) return;
@@ -957,9 +983,7 @@ const levels = [
       ["guard", "The open crossing", 930, 320],
       ["choice", "The next page", 1390, 700],
       ["side-road-trip", "The family road map", 220, 790],
-      ["side-alternator", "The van’s stubborn alternator", 750, 820],
       ["side-date-night", "The candlelit date-night ticket", 1460, 190],
-      ["side-fan", "The bedroom ceiling fan", 210, 180],
       ["side-hands", "A quiet gesture beside the Heartlight", 1040, 860],
     ],
     ability: "Choice",
@@ -1537,14 +1561,19 @@ class KingdomScene extends Phaser.Scene {
     let tries = 0;
     let hints = 4;
     let guessText = "50";
+    let started = false;
     const usedHints = new Set<string>();
     const render = (message = "") => {
       root.innerHTML = `<section class="number-game"><header class="mini-head"><div><div class="eyebrow">Family game night · a faithful memory</div><h1>Pick a number, any number.</h1><p>Type any number from 1 to 100. You get seven guesses and four logic questions.</p></div><button class="btn secondary" id="number-leave">Back to the family room</button></header><div class="number-board"><div class="number-scene"><div class="number-glow">?</div><div class="number-card">${message || "Raiven has picked a number. What’s your first guess?"}</div><div class="number-guess"><input id="number-input" type="number" inputmode="numeric" min="1" max="100" step="1" placeholder="Type 1–100" value="${esc(guessText)}" autocomplete="off" aria-label="Type a number from 1 to 100"><button class="btn" id="number-submit">Guess</button></div><div class="number-hints"><div class="hint-head">ASK A QUESTION · ${hints} LEFT</div>${[{id:"parity",label:"Is the whole number even?"},{id:"half",label:"Is it above or below 50?"},{id:"digits",label:"How many digits?"},{id:"first",label:"Is the first digit even?"},{id:"sum",label:"Is the digit sum even?"},{id:"ends",label:"Is the last digit bigger than the first?"},{id:"five",label:"Is it a multiple of five?"}].map(h=>`<button class="hint-btn" data-hint="${h.id}" ${usedHints.has(h.id)||!hints?"disabled":""}>${h.label}</button>`).join("")}</div><div class="guess-history" id="guess-history">Guesses: ${tries} / 7</div></div></div><p class="small number-footnote">This round’s number is made up for the game. The real memory is how you both approached the puzzle: Raiven looked for a life milestone; Aaron started narrowing the math.</p></section>`;
+      if (!started) {
+        root.querySelector(".number-game")!.insertAdjacentHTML("beforeend", challengeIntroMarkup("Family game night", "Crack the number", "Find Raiven’s number from 1 to 100 in seven guesses. Use up to four logic questions to narrow down the possibilities.", "Type a number and press Enter or Guess. Ask a question by clicking it; questions can reveal parity, digit count, first-digit parity, digit sum, and more. Each question can be used once."));
+        wireChallengeIntro(() => { started = true; render(); }, () => closeMinigame(this));
+      }
       root.querySelector<HTMLButtonElement>("#number-leave")!.onclick=()=>closeMinigame(this);
       const input=root.querySelector<HTMLInputElement>("#number-input")!;
       const submit=()=>{const n=Number(input.value);if(!Number.isInteger(n)||n<1||n>100){toast("Pick a whole number from 1 to 100.");return;}tries++;const history=root.querySelector<HTMLElement>("#guess-history")!;history.textContent=`Guesses: ${tries} / 7`;if(n===target){sceneWin();return;}const result=n<target?"Higher!":"Lower!";root.querySelector<HTMLElement>(".number-card")!.textContent=result; if(tries>=7){root.querySelector<HTMLElement>(".number-card")!.textContent=`The number was ${target}. Want another round?`;root.querySelector<HTMLButtonElement>("#number-submit")!.textContent="Try again";root.querySelector<HTMLButtonElement>("#number-submit")!.onclick=()=>{tries=0;render();};}};
       root.querySelector<HTMLButtonElement>("#number-submit")!.onclick=submit;
-      input.oninput=()=>guessText=input.value;input.onkeydown=(e)=>{if(e.key==="Enter")submit();};input.focus();input.select();
+      input.oninput=()=>guessText=input.value;input.onkeydown=(e)=>{if(e.key==="Enter")submit();};if(started){input.focus();input.select();}
       root.querySelectorAll<HTMLButtonElement>("[data-hint]").forEach(btn=>btn.onclick=()=>{const id=btn.dataset.hint!;if(usedHints.has(id)||hints<=0)return;usedHints.add(id);hints--;let answer="";if(id==="parity")answer=target%2===0?"It’s even.":"It’s odd.";if(id==="half")answer=target>50?"It’s above 50.":target<50?"It’s below 50.":"It’s exactly 50.";if(id==="digits"){const count=String(target).length;answer=`It has ${count} ${count===1?"digit":"digits"}.`;}if(id==="first")answer=Number(String(target)[0])%2===0?"Yes, its first digit is even.":"No, its first digit is odd.";if(id==="sum")answer=String(target).split("").reduce((total,digit)=>total+Number(digit),0)%2===0?"Yes, its digits add up to an even number.":"No, its digits add up to an odd number.";if(id==="ends")answer=Number(String(target).slice(-1))>Number(String(target)[0])?"Yes, the last digit is bigger.":"No, the last digit is not bigger.";if(id==="five")answer=target%5===0?"Yes, it is a multiple of five.":"No, it is not a multiple of five.";render(answer);});
     };
     const sceneWin=()=>{this.completeMarker(m,entry.memory);this.unlockAchievement(entry.achievement);root.innerHTML=`<section class="number-game"><div class="number-win"><div class="eyebrow">You got it</div><h1>That’s my guy.</h1><p>The clever part was how you got there. The two of you always came at the puzzle from different angles.</p><button class="btn" id="number-back">Back to the family room</button></div></section>`;root.querySelector<HTMLButtonElement>("#number-back")!.onclick=()=>closeMinigame(this);};
@@ -1559,8 +1588,10 @@ class KingdomScene extends Phaser.Scene {
     ];
     const slots: (string | null)[] = [null, null, null];
     let selected = "";
+    let started = false;
     const render = () => {
-      root.innerHTML = `<article class="panel wide"><div class="eyebrow">A wedding-day keepsake</div><h2>Put the colors back together</h2><p>Tap a color, then tap a place for it. Think about the little details that made the fall wedding feel like yours.</p><div class="palette-board"><div class="palette-slot" data-slot="0"><small>THE RUNNER</small>${slots[0] ? colors.find(c=>c.id===slots[0])!.label : "Tap to place"}</div><div class="palette-slot" data-slot="1"><small>THE FLOWERS</small>${slots[1] ? colors.find(c=>c.id===slots[1])!.label : "Tap to place"}</div><div class="palette-slot" data-slot="2"><small>THE SUITS</small>${slots[2] ? colors.find(c=>c.id===slots[2])!.label : "Tap to place"}</div></div><div class="palette-tray">${colors.map(c=>`<button class="palette-chip ${selected===c.id?"selected":""}" data-color="${c.id}"><i style="background:${c.color}"></i>${c.label}</button>`).join("")}</div><p class="small">You can move colors around until the whole scene feels right.</p><div class="actions"><button class="btn" id="palette-check">Set the palette</button><button class="btn secondary" id="palette-leave">Leave for now</button></div></article>`;
+      root.innerHTML = `<article class="panel wide challenge-host"><div class="eyebrow">A wedding-day keepsake</div><h2>Put the colors back together</h2><p>Tap a color, then tap a place for it. Think about the little details that made the fall wedding feel like yours.</p><div class="palette-board"><div class="palette-slot" data-slot="0"><small>THE RUNNER</small>${slots[0] ? colors.find(c=>c.id===slots[0])!.label : "Tap to place"}</div><div class="palette-slot" data-slot="1"><small>THE FLOWERS</small>${slots[1] ? colors.find(c=>c.id===slots[1])!.label : "Tap to place"}</div><div class="palette-slot" data-slot="2"><small>THE SUITS</small>${slots[2] ? colors.find(c=>c.id===slots[2])!.label : "Tap to place"}</div></div><div class="palette-tray">${colors.map(c=>`<button class="palette-chip ${selected===c.id?"selected":""}" data-color="${c.id}"><i style="background:${c.color}"></i>${c.label}</button>`).join("")}</div><p class="small">You can move colors around until the whole scene feels right.</p><div class="actions"><button class="btn" id="palette-check">Set the palette</button><button class="btn secondary" id="palette-leave">Leave for now</button></div>${started?"":challengeIntroMarkup("Wedding day · reception details", "Set the wedding colors", "Place burnt orange on the runner, warm gold in the flowers, and bright blue on the suits to bring the reception scene together.", "Click a color, then click the place it belongs. You can move a color to another slot before confirming with Set the palette.")}</article>`;
+      if(!started)wireChallengeIntro(()=>{started=true;render();},()=>closeMinigame(this));
       root.querySelectorAll<HTMLButtonElement>("[data-color]").forEach(b=>b.onclick=()=>{selected=b.dataset.color!;render();});
       root.querySelectorAll<HTMLElement>("[data-slot]").forEach(s=>s.onclick=()=>{if(!selected)return; const i=Number(s.dataset.slot); const old=slots.indexOf(selected); if(old>=0) slots[old]=null; slots[i]=selected; selected=""; render();});
       root.querySelector<HTMLButtonElement>("#palette-leave")!.onclick=()=>closeMinigame(this);

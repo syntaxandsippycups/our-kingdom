@@ -231,6 +231,18 @@ footer {
 .wedding-slide-empty span { font-size:72px; }
 .wedding-slide-empty p { color:#fff0d1; max-width:560px; margin:8px auto; }
 .search-game,.runner-game { pointer-events:auto; position:absolute; inset:0; width:100%; height:100%; overflow:auto; color:#fff4df; background:#131a16; padding:clamp(14px,2.5vw,28px); box-sizing:border-box; }
+.challenge-host { position:relative; }
+.challenge-intro { position:absolute; z-index:8; inset:0; display:grid; place-items:center; padding:clamp(14px,3vw,34px); box-sizing:border-box; overflow:auto; background:linear-gradient(135deg,#080d0bdd,#101713e8); backdrop-filter:blur(5px); color:#fff2d6; }
+.challenge-intro-card { width:min(720px,100%); max-height:100%; overflow:auto; box-sizing:border-box; padding:clamp(20px,4vw,38px); border:1px solid #d5b978aa; border-radius:18px; background:linear-gradient(145deg,#26392f,#15211b 78%); box-shadow:0 22px 70px #000b; animation:rise .2s ease-out; }
+.challenge-intro-card h2 { margin:10px 0 18px; color:#fff0d0; font:700 clamp(27px,4vw,42px)/1.12 Georgia,serif; }
+.challenge-instructions { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.challenge-instructions>div { padding:15px 16px; border:1px solid #c5ad7a55; border-radius:12px; background:#0e1712aa; }
+.challenge-instructions b { color:#e6c783; font-size:10px; letter-spacing:.17em; }
+.challenge-instructions p { margin:7px 0 0; color:#f2e8d3; font-size:14px; line-height:1.55; }
+.challenge-ready { margin:16px 0 8px; color:#d9c9a8; font-size:13px; }
+.challenge-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+.challenge-actions .btn { min-width:155px; }
+@media(max-width:640px) { .challenge-instructions { grid-template-columns:1fr; gap:8px; } .challenge-instructions>div { padding:12px; } .challenge-ready { margin:10px 0 5px; } }
 .search-game { background:linear-gradient(120deg,#101713e8,#101713cc),url('/assets/realm-2-wedding.jpg') center/cover; }
 .mini-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; max-width:1400px; margin:0 auto 14px; }
 .mini-head h1 { margin:5px 0; font:700 clamp(25px,4vw,42px) Georgia,serif; color:#fff0d0; }
@@ -260,8 +272,12 @@ footer {
 .platform-hud #load-time.load-urgent { color:#ff8f96; animation:load-clock-pulse .8s ease-in-out infinite alternate; }
 .platform-hud #load-urgent { color:#e7dbbd; }
 .platform-hud #load-urgent.load-urgent { color:#ff9d98; }
+.platform-hud #load-energy.load-energy-empty { color:#ff9d98; animation:load-clock-pulse .8s ease-in-out infinite alternate; }
+.platform-game.load-potty-emergency::after { content:""; position:absolute; z-index:5; inset:0; pointer-events:none; background:rgba(224,29,48,.2); animation:load-potty-flash .72s steps(2,end) infinite; }
 @keyframes load-clock-pulse { to { text-shadow:0 0 12px #ff475e; } }
+@keyframes load-potty-flash { 0%,100% { opacity:.18; } 50% { opacity:.72; } }
 @media (prefers-reduced-motion:reduce) { .platform-hud #load-time.load-urgent { animation:none; } }
+@media (prefers-reduced-motion:reduce) { .platform-game.load-potty-emergency::after { animation:none; opacity:.48; } }
 .platform-game canvas { display:block; width:min(1100px,100%); height:auto; max-height:calc(100% - 185px); aspect-ratio:12/7; margin:0 auto; border:1px solid #c28e7b; border-radius:12px; background:#1b2525; box-shadow:0 12px 36px #0008; touch-action:none; }
 .platform-hint { display:flex; flex:none; flex-direction:column; gap:5px; width:min(1100px,100%); margin:0 auto; color:#f2e6ce; font-size:12px; line-height:1.35; }
 .platform-legend { color:#d2bea0; font-size:11px; }

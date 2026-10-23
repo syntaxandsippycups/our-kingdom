@@ -12,18 +12,26 @@ const LADDERS = [170, 590, 970];
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 function page(root: HTMLElement, title: string, eyebrow: string, intro: string, leaveId: string, canvasId: string, hud: string, hints: string) {
-  root.innerHTML = `<section class="runner-game platform-game"><header class="mini-head runner-head"><div><div class="eyebrow">${eyebrow}</div><h1>${title}</h1><p>${intro}</p></div><button class="btn secondary" id="${leaveId}">Back to the story</button></header><div class="platform-hud">${hud}</div><canvas id="${canvasId}" width="960" height="560" aria-label="Multi-level scaffold platform game with working ladders"></canvas><div class="platform-hint">${hints}<span class="platform-legend">Walk A / D · climb ↑ / ↓ at ladders · jump Space · duck S / ↓ away from ladders · use E · swat J</span></div><div class="runner-touch"><button data-key="a">◀</button><button data-key="w">UP</button><button data-action="jump">JUMP</button><button data-key="s">DUCK</button><button data-key="arrowdown">DOWN</button><button data-action="use">USE</button><button data-action="attack">SWAT</button><button data-key="d">▶</button></div></section>`;
+  root.innerHTML = `<section class="runner-game platform-game"><header class="mini-head runner-head"><div><div class="eyebrow">${eyebrow}</div><h1>${title}</h1><p>${intro}</p></div><button class="btn secondary" id="${leaveId}">Back to the story</button></header><div class="platform-hud">${hud}</div><canvas id="${canvasId}" width="960" height="560" aria-label="Multi-level scaffold platform game with working ladders"></canvas><div class="platform-hint">${hints}<span class="platform-legend">Walk A / D · climb ↑ / ↓ at ladders · jump Space · duck S / ↓ away from ladders · use E · swat J</span></div><div class="runner-touch"><button data-key="a">◀</button><button data-key="w">UP</button><button data-action="jump">JUMP</button><button data-key="s">DUCK</button><button data-key="arrowdown">DOWN</button><button data-action="use">USE</button><button data-action="attack">SWAT</button><button data-key="d">▶</button></div><div class="challenge-intro" role="dialog" aria-modal="true" aria-labelledby="challenge-title"><section class="challenge-intro-card"><div class="eyebrow">${eyebrow} · BEFORE YOU START</div><h2 id="challenge-title">${title}</h2><div class="challenge-instructions"><div><b>OBJECTIVE</b><p>${intro}</p></div><div><b>CONTROLS</b><p>${hints}</p><p>Walk A / D or ← / → · climb ↑ / ↓ at ladders · jump Space · duck S / ↓ · use E · swat J. Touch controls are below the playfield.</p></div></div><p class="challenge-ready">The timer and moving hazards start when you choose Start.</p><div class="challenge-actions"><button class="btn" id="challenge-start">Start challenge</button><button class="btn secondary" id="challenge-cancel">Back to the story</button></div></section></div></section>`;
 }
 function begin(host: Host, leaveId: string, canvasId: string) {
   const canvas = host.root.querySelector<HTMLCanvasElement>(`#${canvasId}`)!;
   const ctx = canvas.getContext("2d")!;
   const keys = new Set<string>();
-  let raf = 0, last = performance.now(), jump = false, use = false, attack = false, disposed = false;
-  const down = (e: KeyboardEvent) => { const k = e.key.toLowerCase(); if ([" ", "arrowleft", "arrowright", "arrowup", "arrowdown"].includes(k)) e.preventDefault(); keys.add(k); if ([" ", "w", "arrowup"].includes(k)) jump = true; if (k === "e") use = true; if (k === "j") attack = true; };
+  let raf = 0, last = performance.now(), jump = false, use = false, attack = false, disposed = false, started = false;
+  let frameFn: ((time: number) => void) | undefined;
+  const down = (e: KeyboardEvent) => { if (!started) return; const k = e.key.toLowerCase(); if ([" ", "arrowleft", "arrowright", "arrowup", "arrowdown"].includes(k)) e.preventDefault(); keys.add(k); if ([" ", "w", "arrowup"].includes(k)) jump = true; if (k === "e") use = true; if (k === "j") attack = true; };
   const up = (e: KeyboardEvent) => keys.delete(e.key.toLowerCase());
   window.addEventListener("keydown", down); window.addEventListener("keyup", up);
   const cleanup = () => { if (disposed) return; disposed = true; cancelAnimationFrame(raf); window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); host.close(); };
   host.root.querySelector<HTMLButtonElement>(`#${leaveId}`)!.onclick = cleanup;
+  host.root.querySelector<HTMLButtonElement>("#challenge-cancel")!.onclick = cleanup;
+  host.root.querySelector<HTMLButtonElement>("#challenge-start")!.onclick = () => {
+    if (disposed) return;
+    started = true; keys.clear(); jump = use = attack = false; last = performance.now();
+    host.root.querySelector(".challenge-intro")?.remove();
+    if (frameFn) raf = requestAnimationFrame(frameFn);
+  };
   host.root.querySelectorAll<HTMLButtonElement>(".runner-touch [data-key]").forEach(b => {
     const key=b.dataset.key||"d";
     b.onpointerdown = e => { e.preventDefault(); keys.add(key); };
@@ -33,7 +41,7 @@ function begin(host: Host, leaveId: string, canvasId: string) {
   host.root.querySelector<HTMLButtonElement>('[data-action="use"]')!.onpointerdown = e => { e.preventDefault(); use = true; };
   host.root.querySelector<HTMLButtonElement>('[data-action="attack"]')!.onpointerdown = e => { e.preventDefault(); attack = true; };
   const hero = new Image(); hero.src = "/assets/characters/aaron-walk-sheet.png";
-  return { canvas, ctx, keys, hero, cleanup, next: (draw: (time:number)=>void) => { if (!disposed) raf = requestAnimationFrame(draw); }, take: () => { const out = { jump, use, attack }; jump = use = attack = false; return out; }, last: (n: number) => last = n, getLast: () => last, dispose: () => disposed };
+  return { canvas, ctx, keys, hero, cleanup, next: (draw: (time:number)=>void) => { frameFn = draw; if (!disposed && started) raf = requestAnimationFrame(draw); }, take: () => { const out = { jump, use, attack }; jump = use = attack = false; return out; }, last: (n: number) => last = n, getLast: () => last, dispose: () => disposed };
 }
 function drawWorld(ctx: CanvasRenderingContext2D, cam: number, time: number, room = "", backdrop?: HTMLImageElement, darkness = .3) {
   const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, "#17252a"); sky.addColorStop(.66, "#382d35"); sky.addColorStop(1, "#171b1a"); ctx.fillStyle = sky; ctx.fillRect(0,0,W,H);
@@ -68,7 +76,8 @@ function drawAaron(ctx: CanvasRenderingContext2D, hero: HTMLImageElement, p: Bod
   if(!p.grounded&&!p.climbing){ctx.globalAlpha=Math.min(ctx.globalAlpha,.28);ctx.fillStyle="#080c0b";ctx.beginPath();ctx.ellipse(x+29,FLOOR_Y[p.floor]!-3,20,5,0,0,Math.PI*2);ctx.fill();}
   if(carrying){const carryX=x+(p.face>0?47:11),carryY=yy+21+Math.sin(time/120)*2;ctx.globalAlpha=1;ctx.fillStyle="#17231f";ctx.beginPath();ctx.arc(carryX,carryY,17,0,Math.PI*2);ctx.fill();ctx.strokeStyle="#f0d4aa";ctx.lineWidth=2;ctx.stroke();ctx.font="24px Arial";ctx.textAlign="center";ctx.fillText(carrying,carryX,carryY+8);}ctx.restore();
 }
-export function movePlayer(p: Body, keys: Set<string>, dt: number, worldW: number, jump: boolean) {
+export function movePlayer(p: Body, keys: Set<string>, dt: number, worldW: number, jump: boolean, speedMultiplier = 1) {
+  const speed = clamp(speedMultiplier, .4, 1);
   const left=keys.has("a")||keys.has("arrowleft"), right=keys.has("d")||keys.has("arrowright"), up=keys.has("w")||keys.has("arrowup"), down=keys.has("s")||keys.has("arrowdown");
   if(p.climbing){
     const here=p.floor, upper=here+1, lower=here-1;
@@ -76,14 +85,14 @@ export function movePlayer(p: Body, keys: Set<string>, dt: number, worldW: numbe
     if(down&&p.ladderTargetFloor===upper)p.ladderTargetFloor=here;
     const target=p.ladderTargetFloor??here, targetY=FLOOR_Y[target]!-57, direction=Math.sign(targetY-p.y);
     const input=up?-1:down?1:0;
-    if(input===direction&&direction!==0)p.y+=input*185*dt;
+    if(input===direction&&direction!==0)p.y+=input*185*speed*dt;
     p.x=(p.ladderX??p.x+29)-29;p.vx=0;p.vy=0;p.grounded=false;p.duck=false;
     if((direction<0&&p.y<=targetY)||(direction>0&&p.y>=targetY)){
       p.y=targetY;p.floor=target;p.grounded=true;p.climbing=false;p.ladderTargetFloor=undefined;p.ladderX=undefined;
     }
   } else {
     const dir=(right?1:0)-(left?1:0);if(dir){p.face=dir;p.walk+=dt*12;}p.duck=down&&p.grounded;
-    p.vx += dir*(p.duck?1100:1850)*dt;if(!dir)p.vx*=Math.exp(-8*dt);p.vx=clamp(p.vx,-(p.duck?125:300),p.duck?125:300);p.x=clamp(p.x+p.vx*dt,20,worldW-58);
+    p.vx += dir*(p.duck?1100:1850)*speed*dt;if(!dir)p.vx*=Math.exp(-8*dt);p.vx=clamp(p.vx,-(p.duck?125:300)*speed,(p.duck?125:300)*speed);p.x=clamp(p.x+p.vx*dt,20,worldW-58);
     if(up||down){const ladderIndex=up?p.floor:p.floor-1;const ladder=LADDERS[ladderIndex];if(ladder!==undefined&&Math.abs(p.x+29-ladder)<52){p.climbing=true;p.grounded=false;p.vx=0;p.x=ladder-29;p.ladderX=ladder;p.ladderTargetFloor=p.floor+(up?1:-1);}}
     if(jump&&p.grounded&&!p.climbing){p.vy=-470;p.grounded=false;}
     const oldY=p.y;
@@ -109,6 +118,7 @@ function gameClock(seconds: number) { const whole=Math.max(0,Math.ceil(seconds))
 export function canFinishInvisibleLoad(choresDone:number,playBreaks:number,carePending:boolean,accidentPending:boolean) { return choresDone>=8&&playBreaks>=3&&!carePending&&!accidentPending; }
 export function careWindowExpired(elapsed:number,deadline:number,pickedUp:boolean) { return !pickedUp&&elapsed>=deadline; }
 export function choreCanBeUndone(undoCount:number) { return undoCount<3; }
+export function energyMovementMultiplier(energy:number) { return .4 + clamp(energy,0,50)/50*.6; }
 function outcome(host: Host, text: string, win: boolean, onWin?: () => void, retry?: () => void) {
   const box=document.createElement("div");box.className="toybox-outcome";box.innerHTML=`<div class="eyebrow">${win?"ROUND COMPLETE":"ONE MORE TRY"}</div><h2>${text}</h2><p>${win?"You made it through the whole scaffold, one careful step at a time.":"Take a breath. Your story is safe; this challenge can be tried again when you’re ready."}</p>${win?`<button class="btn" id="platform-outcome">Back to the story</button>`:`<div class="outcome-actions"><button class="btn" data-retry>Try this challenge again</button><button class="btn secondary" data-quit>Back to the story</button></div>`}`;host.root.querySelector(".platform-game")!.appendChild(box);if(win){box.querySelector("button")!.addEventListener("click",()=>{box.remove();host.close();onWin?.();});}else{box.querySelector<HTMLButtonElement>("[data-retry]")!.addEventListener("click",()=>{box.remove();retry?.();});box.querySelector<HTMLButtonElement>("[data-quit]")!.addEventListener("click",()=>{box.remove();host.close();});}
 }
@@ -267,8 +277,8 @@ export function breakupBossPlatformer(host: Host, onWin: () => void) {
 }
 
 export function invisibleLoadPlatformer(host: Host, onWin: () => void) {
-  const dayLength=480, choreGoal=8, repeatedCareGoal=3, playGoal=3, taskGoal=choreGoal+playGoal;
-  page(host.root,"The Invisible Load","Through Every Season · BOSS FIGHT","A full day at home: eight house jobs, a little time with each kid, and whatever comes up along the way.","load-leave","load-canvas",`<span>TIME <b id="load-time">08:00</b></span><span id="load-tasks">DONE 0 / ${taskGoal}</span><span id="load-care">MATTHEW 0 / 3 · MALIYAH 0 / 3</span><span id="load-urgent">NO URGENT NEED</span><span id="load-play">PLAY 0 / ${playGoal}</span><span id="load-energy">ENERGY 100%</span><span id="load-watch">CHORES AT RISK 0</span><span id="load-status">THE DAY IS ALREADY MOVING</span>`,`A / D to run · ↑ / ↓ at a ladder · Space to jump · S to duck · E to interact. E finishes a nearby job or gives a child your attention. If Matthew needs the potty or Maliyah needs a change, find that child within 10 seconds, carry them to the marked station, then press E. Missing the window means cleaning up an accident and getting the day back in order. A job the kids undo three times stays safe. Finish the house jobs and play breaks to end the day; care needs stop once you’re done.`);
+  const dayLength=300, choreGoal=8, repeatedCareGoal=3, playGoal=3, taskGoal=choreGoal+playGoal;
+  page(host.root,"The Invisible Load","Through Every Season · BOSS FIGHT","A five-minute family day: eight house jobs, a little time with each kid, and whatever comes up along the way.","load-leave","load-canvas",`<span>TIME <b id="load-time">05:00</b></span><span id="load-tasks">DONE 0 / ${taskGoal}</span><span id="load-care">MATTHEW 0 / 3 · MALIYAH 0 / 3</span><span id="load-urgent">NO URGENT NEED</span><span id="load-play">PLAY 0 / ${playGoal}</span><span id="load-energy">ENERGY 100%</span><span id="load-watch">CHORES AT RISK 0</span><span id="load-status">THE DAY IS ALREADY MOVING</span>`,`A / D to run · ↑ / ↓ at a ladder · Space to jump · S to duck · E to interact. E finishes a nearby job or gives a child your attention. If Matthew needs the potty or Maliyah needs a change, find that child within 10 seconds, carry them to the marked station, then press E. Missing the window means cleaning up an accident and getting the day back in order. A job the kids undo three times stays safe. Finish the house jobs and play breaks to end the day; care needs stop once you’re done. Coffee is unlimited; when energy runs out, get a cup before taking on another job.`);
   const app=begin(host,"load-leave","load-canvas"),p:Body={x:90,y:FLOOR_Y[0]!-57,vx:0,vy:0,floor:0,grounded:true,climbing:false,face:1,walk:0,hurt:0,duck:false};
   const homeArt=new Image();homeArt.src="/assets/realm-3-toy-room.png";
   type Chore={id:string;x:number;floor:number;name:string;icon:string;cost:number;done:boolean;undoCount:number;undoAt:number;underWatch:boolean};
@@ -284,7 +294,7 @@ export function invisibleLoadPlatformer(host: Host, onWin: () => void) {
     {id:"dinner",x:1100,floor:3,name:"DINNER + CLEANUP",icon:"🥣",cost:10,done:false,undoCount:0,undoAt:0,underWatch:false},
   ];
   const toilet={x:1450,floor:1},changingMat={x:1320,floor:2};
-  const coffee=[{x:600,floor:1,used:false},{x:1480,floor:3,used:false}];
+  const coffee=[{x:600,floor:1},{x:1480,floor:3}];
   const kids:LoadKid[]=[
     {id:0,name:"Naomi",x:620,floor:0,targetX:620,targetFloor:0,dir:1,climbT:0,sabotageQueue:[]},
     {id:1,name:"Matthew",x:1180,floor:1,targetX:1180,targetFloor:1,dir:-1,climbT:0,sabotageQueue:[]},
@@ -296,7 +306,6 @@ export function invisibleLoadPlatformer(host: Host, onWin: () => void) {
   const findChore=(id:string)=>chores.find(task=>task.id===id);
   const reset=()=>{
     chores.forEach(task=>{task.done=false;task.undoCount=0;task.undoAt=0;task.underWatch=false;});
-    coffee.forEach(stop=>stop.used=false);
     kids.forEach((kid,index)=>{const starts=[[620,0],[1180,1],[500,2]][index]!;kid.x=starts[0]!;kid.floor=starts[1]!;kid.targetX=kid.x;kid.targetFloor=kid.floor;kid.dir=index===1?-1:1;kid.climbTo=undefined;kid.climbT=0;kid.sabotageQueue=[];});
     played.fill(false);elapsed=0;left=dayLength;energy=100;carryKid=null;done=false;graceUsed=false;pottyDone=0;diaperDone=0;activeCare=null;careKid=null;careDeadline=0;nextCareAt=52;careSequence=0;accidentActive=false;accidentPopupOpen=false;host.root.querySelector(".load-accident-notice")?.remove();msg="Find the kids. The chores can wait one minute.";p.x=90;p.y=FLOOR_Y[0]!-57;p.floor=0;p.vx=0;p.vy=0;p.grounded=true;p.climbing=false;p.hurt=0;app.last(performance.now());
   };
@@ -369,10 +378,11 @@ export function invisibleLoadPlatformer(host: Host, onWin: () => void) {
       else{const remain=Math.max(0,Math.ceil(careDeadline-elapsed));msg=`Find ${activeCare==="potty"?"Matthew":"Maliyah"} · ${remain} seconds to reach them.`;}
       return;
     }
+    const mug=coffee.find(stop=>near(stop.x,stop.floor,70));
+    if(mug){left=Math.min(dayLength+135,left+30);energy=Math.min(100,energy+38);msg="A quick coffee. The work is still here, but you’ve got a little more in the tank.";host.toast("Coffee is always available · +30 seconds and energy restored.");return;}
+    if(energy<=0){msg="OUT OF ENERGY · FIND COFFEE BEFORE THE NEXT JOB.";host.toast("Energy is empty. Find a coffee station before taking on another job.");return;}
     const childForPlay=kids.filter(kid=>!played[kid.id]&&kid.climbTo===undefined&&kid.floor===p.floor&&Math.abs(kid.x-(p.x+29))<58).sort((a,b)=>Math.abs(a.x-p.x)-Math.abs(b.x-p.x))[0];
     if(childForPlay){played[childForPlay.id]=true;left=Math.min(dayLength+135,left+25);energy=Math.min(100,energy+14);msg=`A little time together with ${childForPlay.name} · play breaks ${played.filter(Boolean).length} / ${playGoal}.`;host.toast(`${childForPlay.name} got your full attention. +25 seconds.`);return;}
-    const mug=coffee.find(stop=>!stop.used&&near(stop.x,stop.floor,70));
-    if(mug){mug.used=true;left=Math.min(dayLength+135,left+30);energy=Math.min(100,energy+38);msg="A quick coffee. The work is still here, but you’ve got a little more in the tank.";host.toast("Coffee break · +30 seconds and energy restored.");return;}
     const task=chores.find(item=>!item.done&&near(item.x,item.floor,64));
     if(task){task.done=true;task.undoAt=elapsed+18;energy=Math.max(0,energy-task.cost);msg=`${task.name} · done for now.`;sendKidToUndo(task);host.toast(`${task.name} finished. Little feet are already moving again.`);return;}
     msg="Get close to a child or a station, then press E.";
@@ -416,7 +426,7 @@ export function invisibleLoadPlatformer(host: Host, onWin: () => void) {
         }
         if(activeCare&&careWindowExpired(elapsed,careDeadline,carryKid!==null))createAccident();
         if(!accidentPopupOpen){
-          movePlayer(p,app.keys,dt,1680,acts.jump);if(energy<22)p.vx*=.88;kids.forEach(kid=>moveKid(kid,dt));if(acts.use)interact();
+          movePlayer(p,app.keys,dt,1680,acts.jump,energyMovementMultiplier(energy));kids.forEach(kid=>moveKid(kid,dt));if(acts.use)interact();
           if(activeCare&&carryKid===null&&careDeadline>0){const remaining=Math.max(0,Math.ceil(careDeadline-elapsed));hud(host.root,"load-urgent",`${activeCare==="potty"?"MATTHEW · POTTY":"MALIYAH · DIAPER"} · ${remaining}s`);}
           else if(activeCare&&carryKid!==null)hud(host.root,"load-urgent",`${activeCare==="potty"?"MATTHEW · BATHROOM":"MALIYAH · CHANGING MAT"}`);
           else if(accidentActive)hud(host.root,"load-urgent","CLEAN UP · PRESS E");
@@ -428,14 +438,14 @@ export function invisibleLoadPlatformer(host: Host, onWin: () => void) {
         }
       }
     }
-    const cam=clamp(p.x-W*.48,0,720),ctx=app.ctx;drawWorld(ctx,cam,time,"BOSS · THE INVISIBLE LOAD · ONE FULL FAMILY DAY",homeArt,.36);
+    const cam=clamp(p.x-W*.48,0,720),ctx=app.ctx;drawWorld(ctx,cam,time,"BOSS · THE INVISIBLE LOAD · FIVE-MINUTE FAMILY DAY",homeArt,.36);
     chores.forEach(task=>{const x=task.x-cam,y=FLOOR_Y[task.floor]!-47;if(x<-100||x>W+100)return;ctx.fillStyle=task.done?"#2d5841":"#35453c";ctx.strokeStyle=task.done?"#91e0a5":"#e2bd78";ctx.lineWidth=3;ctx.fillRect(x-67,y-24,134,41);ctx.strokeRect(x-67,y-24,134,41);ctx.fillStyle="#fff1d7";ctx.font="bold 8px Arial";ctx.textAlign="center";ctx.fillText(task.done?(task.underWatch?"DONE · KIDS INCOMING":"DONE · SAFE"):task.name,x,y-29);ctx.font="21px Arial";ctx.fillText(task.done?"✓":task.icon,x,y+4);});
     drawStation(ctx,cam,toilet.x,toilet.floor,"🚽","BATHROOM",activeCare==="potty"||carryKid===1);drawStation(ctx,cam,changingMat.x,changingMat.floor,"🧷","CHANGE MAT",activeCare==="diaper"||carryKid===2);
     if(accidentActive)drawStation(ctx,cam,accidentX,accidentFloor,"🧽","CLEAN UP",true);
-    coffee.forEach(stop=>drawStation(ctx,cam,stop.x,stop.floor,stop.used?"·":"☕",stop.used?"TAKEN":"COFFEE",!stop.used));
+    coffee.forEach(stop=>drawStation(ctx,cam,stop.x,stop.floor,"☕","UNLIMITED COFFEE",true));
     kids.forEach(kid=>drawKid(ctx,kid,cam,time));drawAaron(ctx,app.hero,p,cam,time);if(carryKid!==null)drawKid(ctx,kids[carryKid]!,cam,time,true);
     const totalDone=chores.filter(task=>task.done).length+played.filter(Boolean).length;
     const atRisk=chores.filter(task=>task.underWatch).length,safe=chores.filter(task=>task.done&&task.undoCount>=3).length;
-    hud(host.root,"load-time",`${graceUsed?"LATE · ":""}${gameClock(left)}`);hud(host.root,"load-tasks",`DONE ${totalDone} / ${taskGoal}`);hud(host.root,"load-care",`MATTHEW ${pottyDone} / ${repeatedCareGoal} · MALIYAH ${diaperDone} / ${repeatedCareGoal}`);hud(host.root,"load-play",`PLAY ${played.filter(Boolean).length} / ${playGoal}`);hud(host.root,"load-energy",`ENERGY ${energy}%`);hud(host.root,"load-watch",`CHORES AT RISK ${atRisk} · SAFE ${safe}`);hud(host.root,"load-status",msg);host.root.querySelector<HTMLElement>("#load-time")?.classList.toggle("load-urgent",left<60);host.root.querySelector<HTMLElement>("#load-urgent")?.classList.toggle("load-urgent",!!activeCare||accidentActive);app.next(draw);
+    hud(host.root,"load-time",`${graceUsed?"LATE · ":""}${gameClock(left)}`);hud(host.root,"load-tasks",`DONE ${totalDone} / ${taskGoal}`);hud(host.root,"load-care",`MATTHEW ${pottyDone} / ${repeatedCareGoal} · MALIYAH ${diaperDone} / ${repeatedCareGoal}`);hud(host.root,"load-play",`PLAY ${played.filter(Boolean).length} / ${playGoal}`);const energyHud=host.root.querySelector<HTMLElement>("#load-energy");if(energyHud){energyHud.textContent=`ENERGY ${energy}%`;energyHud.classList.toggle("load-energy-empty",energy<=0);}hud(host.root,"load-watch",`CHORES AT RISK ${atRisk} · SAFE ${safe}`);hud(host.root,"load-status",msg);host.root.querySelector<HTMLElement>("#load-time")?.classList.toggle("load-urgent",left<60);host.root.querySelector<HTMLElement>("#load-urgent")?.classList.toggle("load-urgent",!!activeCare||accidentActive);host.root.querySelector(".platform-game")?.classList.toggle("load-potty-emergency",activeCare==="potty"&&!done);app.next(draw);
   };app.next(draw);
 }
