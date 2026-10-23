@@ -561,33 +561,9 @@ Include:
 
 The encounter must be mechanically fair and satisfying.
 
-### Final boss
+### Final choice (current implementation)
 
-Create an original symbolic antagonist called **The Unwritten**.
-
-The Unwritten represents uncertainty about what comes next.
-
-It is not an evil version of either spouse and should not represent one partner as the source of the relationship's difficulties.
-
-The boss should have clear attack patterns, telegraphed moves, and at least two distinct phases.
-
-The encounter should reward skills learned during the game.
-
-Avoid excessive difficulty or frustrating repetition.
-
-### Narrative twist
-
-Defeating The Unwritten does not reveal a perfect future.
-
-Instead, the player discovers that the fifth fragment cannot be found like the others.
-
-It represents a choice that must continually be made.
-
-The player reaches a final interactive moment where he chooses to continue the adventure.
-
-This is not a moral test.
-
-There is no wrong answer or failure state.
+The final realm does not use an uncertainty boss fight. Aaron returns to the recovered vow document, follows the Heartlight callback, readies Promise Guard, and reaches the Choice scene directly. The fifth fragment represents a choice that must continually be made. The player gets a final interactive moment where he chooses to continue the adventure. This is not a moral test, and there is no wrong answer or failure state.
 
 It is a symbolic story interaction.
 
@@ -1123,7 +1099,7 @@ Before delivery:
 - Test combat.
 - Test puzzles.
 - Test chapter progression.
-- Test the final boss.
+- Test the final Level 5 choice and epilogue sequence.
 - Test the ending.
 - Test pause and resume.
 - Test save and continue.

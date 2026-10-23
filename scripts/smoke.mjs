@@ -69,6 +69,8 @@ try {
         data.originalVows.length !== 13 ||
         !data.anniversaryLetter.includes("After five years, I still choose you") ||
         data.optionalMemories.length < 16 ||
+        data.optionalMemories.some((item) => item.id === "seafood") ||
+        data.optionalMemories.some((item) => item.id === "seafood") ||
         data.familyMembers.length !== 4
       )
         throw new Error("Story data is incomplete");
@@ -81,8 +83,37 @@ try {
   const source = await readFile(new URL("../src/main.ts", import.meta.url), "utf8");
   const platformSource = await readFile(new URL("../src/platform-games.ts", import.meta.url), "utf8");
   const htmlSource = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  if (storyData.optionalMemories.some((item) => item.id === "office") || source.includes('["side-office"')) {
+    throw new Error("The removed Office of Shame memory is still available");
+  }
+  if (storyData.optionalMemories.some((item) => ["warmth", "honeymoon"].includes(item.id)) || source.includes('"side-warmth"') || source.includes('"handwarmer"') || /virgin strawberry daiquiri|mystery daiquiri|hand warmer/i.test(`${source}\n${JSON.stringify(storyData)}`)) {
+    throw new Error("The removed Level 2 hand-warmer and daiquiri content is still available");
+  }
+  if (!source.includes("wedding-reception.jpg") || !source.includes("Array.from({length:10}") || !source.includes("/assets/photos/memories/honeymoon.jpg") || !source.includes("/assets/photos/memories/first-date.jpg") || !source.includes("/assets/photos/memories/proposal.jpg")) {
+    throw new Error("Wedding, first-date, proposal, or honeymoon photos are not wired to their scenes");
+  }
+  if (source.includes('["boss", "The Unwritten"') || source.includes('id === "boss"') || source.includes("The Unwritten")) {
+    throw new Error("The removed Level 5 uncertainty fight is still in the game");
+  }
+  if (!source.includes('addKeys("ONE,TWO,THREE,FOUR", false)') || !source.includes('id="number-input" type="number"')) {
+    throw new Error("The number puzzle still blocks typed digits");
+  }
+  if (!source.includes("body.enable = false") || !source.includes("body.enable = true") || !source.includes("if (!this.started || modalOpen || this.pausedByMenu)")) {
+    throw new Error("The main level does not fully pause behind minigames");
+  }
+  const bedtimeHitStart = platformSource.indexOf("if(hit&&cooldown===0&&n.cool===0)");
+  const bedtimeHitEnd = platformSource.indexOf("if(left<=0&&!kids.every", bedtimeHitStart);
+  const bedtimeHit = platformSource.slice(bedtimeHitStart, bedtimeHitEnd);
+  if (!bedtimeHit.includes("const sleeping=kids.filter(k=>k.asleep)") || bedtimeHit.includes("carry=-1")) {
+    throw new Error("A bedtime hazard still drops the child Aaron is carrying instead of waking another child");
+  }
+  console.log("PASS regressions · number entry, paused level hazards, removed office memory, and bedtime wakeups");
   const playablePlatform = await transform(platformSource, { loader: "ts", format: "esm", target: "es2022" });
-  const { movePlayer } = await import(`data:text/javascript;base64,${Buffer.from(playablePlatform.code).toString("base64")}`);
+  const { movePlayer, canFinishInvisibleLoad, careWindowExpired, choreCanBeUndone } = await import(`data:text/javascript;base64,${Buffer.from(playablePlatform.code).toString("base64")}`);
+  if (!canFinishInvisibleLoad(8,3,false,false) || canFinishInvisibleLoad(8,3,true,false) || canFinishInvisibleLoad(8,3,false,true) || careWindowExpired(9,10,false) || !careWindowExpired(10,10,false) || careWindowExpired(30,10,true) || !choreCanBeUndone(2) || choreCanBeUndone(3)) {
+    throw new Error("Invisible Load completion, urgent-care deadline, or three-undo protection logic is incorrect");
+  }
+  console.log("PASS Invisible Load rules · urgent care is sequential, picked-up needs stop their clock, checklist completion wins immediately, and chores are safe after three undos");
   const makePlayer = (x, y, floor) => ({ x, y, vx: 0, vy: 0, floor, grounded: true, climbing: false, face: 1, walk: 0, hurt: 0, duck: false });
   const hold = (player, keys, frames, jump = false) => { for (let i = 0; i < frames; i++) movePlayer(player, keys, 1 / 60, 1680, jump && i === 0); };
   const climber = makePlayer(100, 443, 0);
@@ -100,13 +131,26 @@ try {
   hold(jumper, new Set(), 100, true);
   if (jumper.floor !== 0 || jumper.y < 380) throw new Error("Jumping bypassed the ladders and reached an upper tier");
   console.log("PASS scaffold movement · ladder ascent, descent, floor-by-floor access, and jump limits");
-  const enemyHitStart = source.indexOf("enemyTouch(raw:");
-  const spikeHitStart = source.indexOf("takeCourseHit()", enemyHitStart);
-  const gameOverStart = source.indexOf("showGameOver(message:", spikeHitStart);
-  const enemyHit = source.slice(enemyHitStart, spikeHitStart);
-  const spikeHit = source.slice(spikeHitStart, gameOverStart);
-  if (enemyHit.includes("setPosition(") || spikeHit.includes("setPosition(")) throw new Error("A combat hit still teleports the player");
-  console.log("PASS damage flow · hits do not teleport; zero hearts expose retry and quit");
+  if (source.includes("takeCourseHit") || source.includes("enemyTouch(raw:") || source.includes("course-spikes") || source.includes("this.hazards") || source.includes("this.physics.add.overlap(this.player, this.enemies")) {
+    throw new Error("The main map still contains damaging hazards or enemy contact");
+  }
+  if (!source.includes("if (this.player.y > 850)") || !source.includes('toast("Back on the path.")')) {
+    throw new Error("Falling from a main map should recover without damage");
+  }
+  if (!source.includes("const safeX = 2230, safeY = 690;") || !source.includes("body.reset(safeX, safeY)") || !source.includes("this.cameras.main.centerOn(safeX, safeY)")) {
+    throw new Error("Leaving the Level 4 day challenge must return Aaron to a clear, saved route near the next story marker");
+  }
+  if (!platformSource.includes("const dayLength=480") || !platformSource.includes("careSequence<repeatedCareGoal*2") || !platformSource.includes("careDeadline=elapsed+10") || !platformSource.includes('id="load-urgent"') || !platformSource.includes('className="load-accident-notice"') || !platformSource.includes("graceUsed=true;left=90;")) {
+    throw new Error("The Invisible Load needs a visible timer, sequential urgent care, an accident recovery popup, and a fair overtime window");
+  }
+  if (!platformSource.includes("choreCanBeUndone(task.undoCount)") || !platformSource.includes("task.undoCount++") || !platformSource.includes("underWatch") || !platformSource.includes("choresDone(),playsDone(),!!activeCare,accidentActive")) {
+    throw new Error("The kids’ chore interruptions, safe-after-three rule, and immediate checklist win are missing");
+  }
+  console.log("PASS Level 4 return anchor and timed family-day challenge · clear route, urgent rotating care, finite task undo, accident recovery, overtime grace");
+  if (!platformSource.includes("left=Math.max(0,left-30)") || !platformSource.includes("p.hurt=1.15") || !platformSource.includes("HIT! −30 SECONDS") || !platformSource.includes("−30 SECONDS", platformSource.indexOf("drawAaron(ctx,app.hero,p,cam,time,carry>=0")) || !platformSource.includes("const carryX=x+(p.face>0?47:11)")) {
+    throw new Error("Toy hits need visible −30 second feedback, blinking, and a facing-aware carry pose");
+  }
+  console.log("PASS damage rules · hazards stay in minigames; toy hits blink, show −30 seconds, and keep carried toys in front");
   const gameSource = `${source}\n${platformSource}`;
   const constructorStart = source.indexOf("constructor() {");
   const preloadStart = source.indexOf("preload() {", constructorStart);
@@ -123,8 +167,10 @@ try {
     "function weddingSearch(scene: KingdomScene, marker: Marker)",
     "function aisleRun(scene: KingdomScene, marker: Marker)",
     "function toyboxCleanup(scene: KingdomScene, marker: Marker)",
-    "left=300",
-    "TOYS ${count} / 20",
+    "left=270",
+    'id="toy-time">04:30',
+    "TOYS ${count} / 15",
+    "15 TOYS · 4 LEVELS · GREEN CHEST BELOW",
     "TOY CHEST",
     "familyDialogueScene(",
     "Naomi · preschooler",
@@ -136,7 +182,8 @@ try {
     "raiven-wedding-dialogue.png",
     "LUNGING! JUMP OR SWAT",
     "family-with-everyone.jpg",
-    "autoplay=1&playsinline=1&controls=1",
+    "autoplay=1&mute=0&playsinline=1&controls=1",
+    'wireYouTubeSound("good-thing-sound", "good-thing-player", "CdgihABLoGQ"',
     "function familyPackGame(scene: KingdomScene, marker: Marker)",
     "function seasonPathGame(scene: KingdomScene, marker: Marker)",
     'role="grid" aria-label="Four by four seasonal logic puzzle"',
@@ -144,11 +191,12 @@ try {
     'this.add.container(x, y, [',
     "function midnightRun(scene: KingdomScene, marker: Marker)",
     "numberGame(m: Marker",
+    "f.shot=1.45+Math.random()*.45",
     "Where did those vows go?",
     "SELF DOUBT",
     "COLD FEET",
     "THE DIAPER BAG",
-    "modalOpen = true;",
+    "setModalOpen(true)",
     'body.setAccelerationX(dx * (ducking ? 1150 : 2350))',
     'this.player.anims.play("aaron-walk", true)',
     'this.physics.add.collider(this.player, this.platforms)',
@@ -167,13 +215,18 @@ try {
     "ceremonySequence(this)",
     "epilogue(this)",
     '"Read the anniversary letter"',
-    'wireYouTubeSound("good-thing-sound", "good-thing-player")',
-    'wireYouTubeSound("spend-life-sound", "spend-life-player")',
+    'wireYouTubeSound("good-thing-sound", "good-thing-player", "CdgihABLoGQ"',
+    'wireYouTubeSound("spend-life-sound", "spend-life-player", "YS8ba414eOg"',
     'restoreSequence(["sandwich", "conversation", "second-date", "breakup-boss"])',
-    'restoreSequence(["callback", "echo", "guard", "boss", "choice"])',
+    'restoreSequence(["callback", "echo", "guard", "choice"])',
     'requestFullscreen()',
     'showGameOver(message: string)',
-    'Retry this level',
+    'Retry from checkpoint',
+    'world.pause()',
+    'isSolved',
+    'Is the first digit even?',
+    'inputmode="numeric"',
+    '"family-timeline": "toybox"',
   ]) {
     if (!gameSource.includes(required)) throw new Error(`Missing game path: ${required}`);
   }
@@ -190,13 +243,18 @@ try {
     "ladderTargetFloor",
     "OUT OF HEARTS",
     "raiven-wedding-dialogue.png",
-    "20 seconds off",
+    "30 seconds off",
+    "UNTIL SUNRISE",
+    "heartPickups",
     "BOSS · THE FIRST BREAK",
     "BOSS · THE INVISIBLE LOAD",
     "NAOMI’S ROOM",
-    "MALIYAH’S NURSERY",
+    "MALIYAH’S ROOM",
     "const toyLanes=",
-    "20 seconds off",
+    "UNTIL SUNRISE",
+    "heartPickups",
+    "All three kids are already roaming the scaffold",
+    "cryContext??=new AudioContext()",
   ]) {
     if (!platformSource.includes(required)) throw new Error(`Missing platform game feature: ${required}`);
   }

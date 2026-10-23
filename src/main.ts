@@ -34,6 +34,25 @@ const interactPrompt =
   document.querySelector<HTMLDivElement>("#interact-prompt")!;
 let modalOpen = false;
 let activeScene: KingdomScene | null = null;
+function setModalOpen(open: boolean) {
+  modalOpen = open;
+  const scene = activeScene;
+  const world = scene?.physics?.world;
+  const body = scene?.player?.body as Phaser.Physics.Arcade.Body | undefined;
+  if (open) {
+    world?.pause();
+    if (body) {
+      body.setVelocity(0, 0).setAcceleration(0, 0);
+      body.enable = false;
+    }
+  } else {
+    if (body) {
+      body.enable = true;
+      body.setVelocity(0, 0).setAcceleration(0, 0);
+    }
+    world?.resume();
+  }
+}
 const anniversaryCard = document.querySelector<HTMLElement>("#anniversary-card");
 const readyPlayerButton = document.querySelector<HTMLButtonElement>("#ready-player");
 const cardLoading = document.querySelector<HTMLElement>("#card-loading");
@@ -82,14 +101,14 @@ function panel(
   buttons: { label: string; action: () => void; kind?: string }[] = [],
   wide = false,
 ) {
-  modalOpen = true;
+  setModalOpen(true);
   root.innerHTML = `<article class="panel ${wide ? "wide" : ""}">${body}<div class="actions">${buttons.map((b, i) => `<button class="btn ${b.kind || ""}" data-i="${i}">${esc(b.label)}</button>`).join("")}</div></article>`;
   root.querySelectorAll<HTMLButtonElement>(".actions button[data-i]").forEach(
     (el, i) =>
       (el.onclick = () => {
         const fn = buttons[i]?.action;
         root.innerHTML = "";
-        modalOpen = false;
+        setModalOpen(false);
         fn?.();
       }),
   );
@@ -97,12 +116,12 @@ function panel(
 
 function closeMinigame(scene: KingdomScene) {
   root.innerHTML = "";
-  modalOpen = false;
+  setModalOpen(false);
   scene.refreshHud();
 }
 
 function familyPackGame(scene: KingdomScene, marker: Marker) {
-  modalOpen = true;
+  setModalOpen(true);
   const items = [
     { id:"diapers", name:"Diapers", icon:"🧷", need:true },
     { id:"wipes", name:"Wipes", icon:"🧻", need:true },
@@ -124,7 +143,7 @@ function familyPackGame(scene: KingdomScene, marker: Marker) {
 }
 
 function seasonPathGame(scene: KingdomScene, marker: Marker) {
-  modalOpen = true;
+  setModalOpen(true);
   type Season = "spring" | "summer" | "autumn" | "winter";
   const seasons: { id: Season; name: string; icon: string; mark: string }[] = [
     { id: "spring", name: "Spring", icon: "🌱", mark: "SP" },
@@ -141,6 +160,15 @@ function seasonPathGame(scene: KingdomScene, marker: Marker) {
   let hintsUsed = 0;
   const notes = new Map<number, Set<Season>>();
   const clearBoardErrors = () => root.querySelectorAll(".logic-cell.conflict").forEach((cell) => cell.classList.remove("conflict"));
+  const isSolved = () => {
+    if (board.some((value) => !value)) return false;
+    for (let n = 0; n < 4; n++) {
+      const row = Array.from({ length: 4 }, (_, c) => board[n * 4 + c]);
+      const column = Array.from({ length: 4 }, (_, r) => board[r * 4 + n]);
+      if (new Set(row).size !== 4 || new Set(column).size !== 4) return false;
+    }
+    return true;
+  };
   const finish = () => {
     scene.completeMarker(marker, "The four-season mechanism was restored by solving a 4×4 Latin-square puzzle: every row and column holds one Spring, Summer, Autumn, and Winter.");
     scene.unlockAchievement("A PATH THROUGH EVERY SEASON");
@@ -151,15 +179,19 @@ function seasonPathGame(scene: KingdomScene, marker: Marker) {
   };
   const draw = () => {
     const filled = board.filter(Boolean).length;
-    root.innerHTML = `<section class="season-game"><header class="mini-head"><div><div class="eyebrow">Through Every Season · logic mechanism</div><h1>Restore the Heartlight calendar.</h1><p>Place each season once in every row and every column. Five stones are fixed; solve the rest.</p></div><button class="btn secondary" id="season-leave">Back to the path</button></header><div class="season-board"><div class="logic-intro"><b>THE FOUR-SEASON RULE</b><span>Each row and column gets one of each season. No duplicates.</span><span class="logic-count">${filled} / 16 placed</span></div><div class="logic-wrap"><div class="logic-grid" role="grid" aria-label="Four by four seasonal logic puzzle"><div class="logic-corner">YEAR</div>${seasons.map((season) => `<div class="logic-colhead">${season.icon}<small>${season.mark}</small></div>`).join("")}${Array.from({ length: 4 }, (_, row) => `<div class="logic-rowhead">${String(row + 1).padStart(2, "0")}</div>${Array.from({ length: 4 }, (_, col) => { const i = row * 4 + col; const value = board[i]; const season = seasons.find((s) => s.id === value); const pencilMarks = [...(notes.get(i) || [])].map((id) => seasons.find((s) => s.id === id)!.mark).join(" · "); return `<button class="logic-cell ${clues[i] ? "given" : ""} ${selected === i ? "selected" : ""}" role="gridcell" data-cell="${i}" aria-label="Row ${row + 1}, column ${col + 1}${season ? `, ${season.name}` : ", empty"}" ${clues[i] ? "disabled" : ""}>${season ? `<span class="logic-icon">${season.icon}</span><small>${season.name}</small>` : pencilMarks ? `<span class="logic-notes">${pencilMarks}</span>` : `<span class="logic-empty">${row + 1}.${col + 1}</span>`}${clues[i] ? `<i>CLUE</i>` : ""}</button>`; }).join("")}`).join("")}</div></div><div class="logic-tools"><div class="logic-tray">${seasons.map((season) => `<button class="logic-season" data-season="${season.id}" aria-label="Place ${season.name}"><span>${season.icon}</span>${season.name}</button>`).join("")}</div><div class="season-actions"><button class="btn ${pencil ? "secondary" : "ghost"}" id="season-pencil">${pencil ? "PENCIL ON" : "PENCIL NOTES"}</button><button class="btn" id="season-check">Check the mechanism</button><button class="btn secondary" id="season-hint" ${hintsUsed >= 3 ? "disabled" : ""}>Logic hint · ${3 - hintsUsed}</button><button class="btn ghost" id="season-reset">Clear my entries</button></div><p class="logic-feedback" aria-live="polite">${esc(feedback)}</p><p class="small">Select an empty stone, then a season. Pencil mode lets you keep candidates. Fixed stones cannot be moved; checking the board only points out conflicts.</p></div></div></section>`;
+    root.innerHTML = `<section class="season-game"><header class="mini-head"><div><div class="eyebrow">Through Every Season · logic mechanism</div><h1>Restore the Heartlight calendar.</h1><p>Place each season once in every row and every column. Five stones are fixed; solve the rest.</p></div><button class="btn secondary" id="season-leave">Back to the path</button></header><div class="season-board"><div class="logic-intro"><b>THE FOUR-SEASON RULE</b><span>Each row and column gets one of each season. No duplicates.</span><span class="logic-count">${filled} / 16 placed</span></div><div class="logic-wrap"><div class="logic-grid" role="grid" aria-label="Four by four seasonal logic puzzle"><div class="logic-corner">YEAR</div>${seasons.map((season) => `<div class="logic-colhead">${season.icon}<small>${season.mark}</small></div>`).join("")}${Array.from({ length: 4 }, (_, row) => `<div class="logic-rowhead">${String(row + 1).padStart(2, "0")}</div>${Array.from({ length: 4 }, (_, col) => { const i = row * 4 + col; const value = board[i]; const season = seasons.find((s) => s.id === value); const pencilMarks = [...(notes.get(i) || [])].map((id) => seasons.find((s) => s.id === id)!.mark).join(" · "); return `<button class="logic-cell ${clues[i] ? "given" : ""} ${selected === i ? "selected" : ""}" role="gridcell" data-cell="${i}" aria-label="Row ${row + 1}, column ${col + 1}${season ? `, ${season.name}` : ", empty"}" ${clues[i] ? "disabled" : ""}>${season ? `<span class="logic-icon">${season.icon}</span><small>${season.name}</small>` : pencilMarks ? `<span class="logic-notes">${pencilMarks}</span>` : `<span class="logic-empty">${row + 1}.${col + 1}</span>`}${clues[i] ? `<i>CLUE</i>` : ""}</button>`; }).join("")}`).join("")}</div></div><div class="logic-tools"><div class="logic-tray">${seasons.map((season) => `<button class="logic-season" data-season="${season.id}" aria-label="Place ${season.name}"><span>${season.icon}</span>${season.name}</button>`).join("")}</div><div class="season-actions"><button class="btn ${pencil ? "secondary" : "ghost"}" id="season-pencil">${pencil ? "PENCIL ON" : "PENCIL NOTES"}</button><button class="btn secondary" id="season-hint" ${hintsUsed >= 3 ? "disabled" : ""}>Logic hint · ${3 - hintsUsed}</button><button class="btn ghost" id="season-reset">Clear my entries</button></div><p class="logic-feedback" aria-live="polite">${esc(feedback)}</p><p class="small">Select a stone, then a season. When all four rows and columns line up, the crossing opens by itself.</p></div></div></section>`;
     root.querySelector<HTMLButtonElement>("#season-leave")!.onclick = () => closeMinigame(scene);
     root.querySelectorAll<HTMLButtonElement>("[data-cell]").forEach((cell) => cell.onclick = () => { selected = Number(cell.dataset.cell); feedback = clues[selected] ? "That stone is part of the old inscription." : `Row ${Math.floor(selected / 4) + 1}, column ${(selected % 4) + 1} selected.`; draw(); });
     root.querySelectorAll<HTMLButtonElement>("[data-season]").forEach((button) => button.onclick = () => {
       if (selected < 0 || clues[selected]) { feedback = "Choose an empty stone on the calendar first."; draw(); return; }
       const season = button.dataset.season as Season;
       if (pencil) { const set = notes.get(selected) || new Set<Season>(); set.has(season) ? set.delete(season) : set.add(season); notes.set(selected, set); feedback = "Candidate note updated."; }
-      else { board[selected] = season; notes.delete(selected); feedback = `Placed ${season[0]!.toUpperCase()}${season.slice(1)}. Check the row and column before adding another.`; }
+      else { board[selected] = season; notes.delete(selected); feedback = `Placed ${season[0]!.toUpperCase()}${season.slice(1)}.`; }
       draw();
+      if (!pencil && board.every(Boolean)) {
+        if (isSolved()) finish();
+        else { feedback = "A season repeats in a row or column. Move a stone and the crossing will open when everything fits."; draw(); }
+      }
     });
     root.querySelector<HTMLButtonElement>("#season-pencil")!.onclick = () => { pencil = !pencil; feedback = pencil ? "Pencil mode is on. Season buttons now add or remove candidates." : "Pencil mode is off. Season buttons fill the selected stone."; draw(); };
     root.querySelector<HTMLButtonElement>("#season-reset")!.onclick = () => { board = blankBoard(); notes.clear(); selected = -1; feedback = "Entries cleared. The five fixed clues remain."; draw(); };
@@ -171,50 +203,36 @@ function seasonPathGame(scene: KingdomScene, marker: Marker) {
       ];
       feedback = tips[hintsUsed++]!; draw();
     };
-    root.querySelector<HTMLButtonElement>("#season-check")!.onclick = () => {
-      clearBoardErrors();
-      const conflicts = new Set<number>();
-      for (let n = 0; n < 4; n++) {
-        for (const group of [Array.from({ length: 4 }, (_, c) => n * 4 + c), Array.from({ length: 4 }, (_, r) => r * 4 + n)]) {
-          const seen = new Map<Season, number[]>();
-          for (const cell of group) { const value = board[cell]; if (value) seen.set(value, [...(seen.get(value) || []), cell]); }
-          for (const cells of seen.values()) if (cells.length > 1) cells.forEach((cell) => conflicts.add(cell));
-        }
-      }
-      if (conflicts.size) { feedback = `${conflicts.size} stones conflict with a row or column rule. The board marks the collisions; work out which placements to change.`; draw(); conflicts.forEach((cell) => root.querySelector(`[data-cell="${cell}"]`)?.classList.add("conflict")); return; }
-      if (board.some((value) => !value)) { feedback = "No row or column clashes so far. Keep filling the empty stones."; draw(); return; }
-      finish();
-    };
   };
   draw();
 }
 
 function midnightRun(scene: KingdomScene, marker: Marker) {
-  modalOpen = true;
+  setModalOpen(true);
   midnightPlatformer({ root, toast, close: () => closeMinigame(scene) }, () => {
     coupleScene("Beautiful Chaos · 2:13 a.m. · imagined dialogue", "The whole house is finally quiet", "Raiven", "You got everybody settled? Thank you. I know that took a while.", [
-      { label: "We make a pretty good night shift", action: () => { scene.completeMarker(marker, "The night shift climbs through Naomi and Matthew’s rooms, takes them back to bed after a household noise, then settles baby Maliyah before Raiven wakes. The small jobs are real care."); coupleScene("A little before sunrise · imagined dialogue", "Five more minutes", "Aaron", "If we’re both awake, we might as well sit together for a minute.", [{ label: "Stay until morning", action: () => toast("Morning is waiting in the family room.") }], "aaron", "/assets/realm-3-home.jpg"); } },
-      { label: "You get some rest. I’ve got the next one", kind: "secondary", action: () => { scene.completeMarker(marker, "The night shift climbs through Naomi and Matthew’s rooms, takes them back to bed after a household noise, then settles baby Maliyah before Raiven wakes. The small jobs are real care."); } },
+      { label: "We make a pretty good night shift", action: () => { scene.completeMarker(marker, "Aaron quietly gathers Naomi, Matthew, and Maliyah from around the scaffolded house, carries each child to bed, and keeps at it when a noise wakes someone again."); coupleScene("A little before sunrise · imagined dialogue", "Five more minutes", "Aaron", "If we’re both awake, we might as well sit together for a minute.", [{ label: "Stay until morning", action: () => toast("Morning is waiting in the family room.") }], "aaron", "/assets/realm-3-home.jpg"); } },
+      { label: "You get some rest. I’ve got the next one", kind: "secondary", action: () => { scene.completeMarker(marker, "Aaron quietly gathers Naomi, Matthew, and Maliyah from around the scaffolded house, carries each child to bed, and keeps at it when a noise wakes someone again."); } },
     ], "raiven", "/assets/realm-3-home.jpg");
   });
 }
 
 function toyboxCleanup(scene: KingdomScene, marker: Marker) {
-  modalOpen = true;
+  setModalOpen(true);
   toyboxPlatformer({ root, toast, close: () => closeMinigame(scene) }, () => {
-    scene.completeMarker(marker, "After bedtime Aaron makes a full sweep of the living room, returning twenty toys to the green chest across four scaffold levels while dodging steady phone and TV distractions. A hit costs twenty seconds and drops the carried toy where it started.");
-    toast("Twenty toys tucked away. The night shift continues.");
+    scene.completeMarker(marker, "After bedtime Aaron makes a full sweep of the living room, returning fifteen toys to the green chest across four scaffold levels while dodging steady phone and TV distractions. A hit costs thirty seconds and drops the carried toy where it started.");
+    toast("Fifteen toys tucked away. The night shift continues.");
   });
 }
 
 function weddingSearch(scene: KingdomScene, marker: Marker) {
-  modalOpen = true;
+  setModalOpen(true);
   const items = [
     { id: "rings", name: "Wedding rings", icon: "💍", x: 76, y: 68 },
     { id: "bouquet", name: "Bridal bouquet", icon: "💐", x: 49, y: 41 },
     { id: "vows", name: "Raiven’s vow pages", icon: "📜", x: 10, y: 24 },
     { id: "boutonniere", name: "Aaron’s boutonniere", icon: "🌼", x: 66, y: 34 },
-    { id: "handwarmer", name: "A pocket hand warmer", icon: "🧤", x: 32, y: 71 },
+    { id: "program", name: "Ceremony program", icon: "📖", x: 32, y: 71 },
   ];
   const found = new Set<string>();
   let seconds = 240, mistakes = 0, hints = 3, running = true;
@@ -222,14 +240,14 @@ function weddingSearch(scene: KingdomScene, marker: Marker) {
     ["🕯️",9,62],["🍂",19,40],["🪑",25,77],["📷",35,50],["🎀",42,22],["🌼",58,54],["🥂",83,34],
     ["🕊️",89,58],["🧣",18,85],["🧥",29,31],["📜",38,75],["🕯️",57,20],["🍁",63,82],["🪞",72,48],
     ["🧺",93,77],["🌹",7,37],["🪑",53,80],["🎗️",45,62],["🕯️",78,19],["🍂",13,51],["👠",33,87],
-    ["🌿",68,23],["📷",86,50],["🥂",74,77],["🧤",22,22],["🪻",95,27],["🧥",50,31],["🎀",5,74],
+    ["🌿",68,23],["📷",86,50],["🥂",74,77],["🪻",22,22],["🪻",95,27],["🧥",50,31],["🎀",5,74],
     ["🕊️",59,68],["🍁",97,61],["🪑",39,39],["🕯️",28,59],["📜",80,88],["🌼",14,71],["🧺",67,91],
   ] as const;
   const timerText = () => `${Math.floor(seconds / 60).toString().padStart(2,"0")}:${(seconds % 60).toString().padStart(2,"0")}`;
   const endSearch = (win: boolean) => {
     running = false;
     if (win) {
-      scene.completeMarker(marker, "Aaron searched a crowded wedding-day scene under time pressure and recovered the rings, Raiven’s bouquet, the vow pages, Aaron’s boutonniere, and a hand warmer.");
+      scene.completeMarker(marker, "Aaron searched a crowded wedding-day scene under time pressure and recovered the rings, Raiven’s bouquet, the vow pages, Aaron’s boutonniere, and the ceremony program.");
       root.querySelector(".search-art")?.classList.add("search-complete");
       const art = root.querySelector<HTMLElement>(".search-art");
       if (art) art.innerHTML += `<div class="search-finale"><div class="eyebrow">Every last thing is here</div><h2>The vows made it back.</h2><p>The wooden arch is waiting.</p><button class="btn" id="search-return">Return to the ceremony</button></div>`;
@@ -243,7 +261,7 @@ function weddingSearch(scene: KingdomScene, marker: Marker) {
   const leave = () => { running = false; window.clearInterval(timer); closeMinigame(scene); };
   const draw = () => {
     const extraClutter = Array.from({length:54},(_,i)=>{
-      const icons=["🍂","🕯️","🌼","💍","💐","📜","🧤","🎀","🥂","🪑","🧣","📷","🌿","🍁"];
+      const icons=["🍂","🕯️","🌼","💍","💐","📜","📖","🎀","🥂","🪑","🧣","📷","🌿","🍁"];
       return [icons[(i*7)%icons.length]!, 5+((i*37+11)%90), 9+((i*53+17)%78)] as const;
     });
     root.innerHTML = `<section class="search-game" aria-label="Wedding hidden object game"><header class="mini-head"><div><div class="eyebrow">Wedding day · before the ceremony</div><h1>Where did those vows go?</h1><p>Search the full scene. The lookalikes are on purpose; the list marks the real items.</p></div><div class="search-tools"><b id="search-time">${timerText()}</b><span id="search-mistakes">MISCLICKS ${mistakes}</span><button class="btn secondary" id="search-hint">HINT · ${hints}</button><button class="btn ghost" id="search-leave">Back to the wedding</button></div></header><div class="search-layout"><div class="search-art" role="group" aria-label="Crowded wedding scene. Find the listed items among the decoys."><div class="search-clutter" aria-hidden="true">${[...clutter,...extraClutter].map(([icon,x,y],i)=>`<span style="--x:${x}%;--y:${y}%;--tilt:${(i%7-3)*9}deg">${icon}</span>`).join("")}</div>${items.map((item) => `<button class="search-object ${found.has(item.id) ? "found" : ""}" style="--x:${item.x}%;--y:${item.y}%" data-item="${item.id}" aria-label="Find ${item.name}" ${found.has(item.id) ? "disabled" : ""}><span>${item.icon}</span></button>`).join("")}<div class="search-note">4:00 · Find the five real items among the ceremony-day lookalikes</div></div><aside class="search-list"><div class="search-count">FOUND <b>${found.size}</b> / 5</div><div class="search-items">${items.map((item) => `<div class="search-row ${found.has(item.id) ? "found" : ""}"><span class="search-icon">${found.has(item.id) ? "✓" : item.icon}</span><span>${esc(item.name)}</span></div>`).join("")}</div><p class="small">Wrong clicks cost four seconds. Three hints are available; each costs 25 seconds.</p></aside></div></section>`;
@@ -288,36 +306,36 @@ function weddingSearch(scene: KingdomScene, marker: Marker) {
 }
 
 function aisleRun(scene: KingdomScene, marker: Marker) {
-  modalOpen = true;
+  setModalOpen(true);
   const WORLD = 3100, W = 960, H = 540, floor = 426;
   const obstacles = [
-    { x: 420, label: "SELF DOUBT", type: "jump", done: false, wind: 0, cooldown: 0, phase: 0 },
-    { x: 840, label: "COLD FEET", type: "fight", done: false, wind: 0, cooldown: 0, phase: 0 },
-    { x: 1280, label: "WHAT IF?", type: "jump", done: false, wind: 0, cooldown: 0, phase: 0 },
-    { x: 1740, label: "NERVES", type: "fight", done: false, wind: 0, cooldown: 0, phase: 0 },
-    { x: 2200, label: "EVERYTHING CHANGES", type: "jump", done: false, wind: 0, cooldown: 0, phase: 0 },
-    { x: 2670, label: "THE BIG MOMENT", type: "fight", done: false, wind: 0, cooldown: 0, phase: 0 },
+    { x: 390, label: "SELF DOUBT", type: "jump", done: false, wind: 0, cooldown: 0, phase: 0 },
+    { x: 1040, label: "COLD FEET", type: "fight", done: false, wind: 0, cooldown: 0, phase: 0 },
+    { x: 1560, label: "WHAT IF?", type: "jump", done: false, wind: 0, cooldown: 0, phase: 0 },
+    { x: 2180, label: "NERVES", type: "fight", done: false, wind: 0, cooldown: 0, phase: 0 },
+    { x: 2740, label: "THE BIG MOMENT", type: "fight", done: false, wind: 0, cooldown: 0, phase: 0 },
   ];
-  const gaps=[{x:660,w:126},{x:1110,w:126},{x:1570,w:126},{x:2040,w:126},{x:2500,w:126}];
+  // Keep a generous landing and reaction zone between each gap and jitter.
+  const gaps=[{x:660,w:126},{x:1200,w:126},{x:1760,w:126},{x:2330,w:126}];
   root.innerHTML = `<section class="runner-game"><header class="mini-head runner-head"><div><div class="eyebrow">The walk to the wooden arch</div><h1>Okay, deep breath.</h1><p>Jump over any jitter or swat it in range. Watch for the gold flash before it lunges.</p></div><button class="btn secondary" id="runner-leave">Back to the wedding</button></header><div class="runner-hud"><span id="runner-health">♥ ♥ ♥</span><span id="runner-progress">THE ARCH IS AHEAD</span><span>A / D · move &nbsp; SPACE · jump &nbsp; J · swat</span></div><canvas id="runner-canvas" width="960" height="540" aria-label="Side scrolling wedding platform game with attacking jitters"></canvas><div class="runner-touch"><button id="runner-left">◀</button><button id="runner-jump">JUMP</button><button id="runner-attack">SWAT</button><button id="runner-right">▶</button></div></section>`;
   const canvas = root.querySelector<HTMLCanvasElement>("#runner-canvas")!, ctx = canvas.getContext("2d")!;
   const bg = new Image(); bg.src = "/assets/realm-2-wedding-side.png";
   const hero = new Image(); hero.src = "/assets/characters/aaron-walk-sheet.png";
   const keys = new Set<string>();
   const player = { x: 60, y: floor - 74, vx:0, vy: 0, hp: 3, attack: 0, invuln: 0, grounded: true, coyote:.12 };
-  let raf = 0, last = 0, complete = false, defeated = false, jumpRequest = false, attackRequest = false, walk = 0, facing = 1, lastHitX = -1000, hitFlash = 0, checkpointX=60;
-  const onKeyDown = (e: KeyboardEvent) => { const k = e.key.toLowerCase(); if ([" ", "arrowleft", "arrowright", "arrowup"].includes(k)) e.preventDefault(); keys.add(k); if ([" ", "arrowup", "w"].includes(k)) jumpRequest = true; if (k === "j") attackRequest = true; };
+  let raf = 0, last = 0, complete = false, defeated = false, jumpBuffer = 0, attackRequest = false, walk = 0, facing = 1, lastHitX = -1000, hitFlash = 0, checkpointX=60;
+  const onKeyDown = (e: KeyboardEvent) => { const k = e.key.toLowerCase(); if ([" ", "arrowleft", "arrowright", "arrowup"].includes(k)) e.preventDefault(); keys.add(k); if ([" ", "arrowup", "w"].includes(k)) jumpBuffer = .18; if (k === "j") attackRequest = true; };
   const onKeyUp = (e: KeyboardEvent) => keys.delete(e.key.toLowerCase());
   window.addEventListener("keydown", onKeyDown); window.addEventListener("keyup", onKeyUp);
   const bind = (id: string, key: string, action?: () => void) => { const b = root.querySelector<HTMLButtonElement>(`#${id}`)!; b.onpointerdown = (e) => { e.preventDefault(); if (action) action(); else keys.add(key); }; b.onpointerup = b.onpointerleave = () => keys.delete(key); };
-  bind("runner-left", "arrowleft"); bind("runner-right", "arrowright"); bind("runner-jump", "", () => jumpRequest = true); bind("runner-attack", "", () => attackRequest = true);
+  bind("runner-left", "arrowleft"); bind("runner-right", "arrowright"); bind("runner-jump", "", () => jumpBuffer = .18); bind("runner-attack", "", () => attackRequest = true);
   const leave = () => { cancelAnimationFrame(raf); window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); closeMinigame(scene); };
   const retry = () => {
     root.querySelector(".toybox-outcome")?.remove();
     obstacles.forEach((o) => { o.done = false; o.wind = 0; o.cooldown = 0; o.phase = 0; });
     player.x = 60; player.y = floor - 74; player.vx = 0; player.vy = 0; player.hp = 3;
     player.attack = 0; player.invuln = 0; player.grounded = true; player.coyote = .12;
-    checkpointX = 60; complete = false; defeated = false; last = performance.now();
+    checkpointX = 60; complete = false; defeated = false; jumpBuffer = 0; last = performance.now();
   };
   const showDefeat = () => {
     const box = document.createElement("div");
@@ -363,8 +381,8 @@ function aisleRun(scene: KingdomScene, marker: Marker) {
       const dir = (keys.has("d") || keys.has("arrowright") ? 1 : 0) - (keys.has("a") || keys.has("arrowleft") ? 1 : 0);
       if(dir){walk += dt*13;facing=dir;}
       player.vx+=dir*2200*dt;if(!dir)player.vx*=Math.exp(-7*dt);player.vx=Math.max(-325,Math.min(325,player.vx));player.x=Math.max(0,Math.min(WORLD-70,player.x+player.vx*dt));
-      player.coyote=player.grounded?.12:Math.max(0,player.coyote-dt);
-      if(jumpRequest&&(player.grounded||player.coyote>0)){player.vy=-650;player.grounded=false;player.coyote=0;}jumpRequest=false;
+      player.coyote=player.grounded?.14:Math.max(0,player.coyote-dt);jumpBuffer=Math.max(0,jumpBuffer-dt);
+      if(jumpBuffer>0&&(player.grounded||player.coyote>0)){player.vy=-650;player.grounded=false;player.coyote=0;jumpBuffer=0;}
       const gapUnder=gaps.some(g=>player.x+56>g.x&&player.x+12<g.x+g.w);
       const jumpHeld=keys.has(" ")||keys.has("arrowup")||keys.has("w");player.vy+=(jumpHeld&&player.vy<0?1150:1780)*dt;player.y+=player.vy*dt;
       if(!gapUnder&&player.y+74>=floor){player.y=floor-74;player.vy=0;player.grounded=true;player.coyote=.12;}else player.grounded=false;
@@ -396,7 +414,7 @@ function aisleRun(scene: KingdomScene, marker: Marker) {
     for(const o of obstacles){const x=o.x-cam;if(x>-80&&x<W+80)drawEnemy(o,x,time);}
     const archX=WORLD-95-cam;ctx.strokeStyle="#6b432c";ctx.lineWidth=12;ctx.beginPath();ctx.moveTo(archX-45,floor);ctx.lineTo(archX-45,220);ctx.quadraticCurveTo(archX,160,archX+45,220);ctx.lineTo(archX+45,floor);ctx.stroke();ctx.fillStyle="#f6d28f";ctx.font="bold 17px Georgia";ctx.textAlign="center";ctx.fillText("THE ARCH",archX,floor-205);
     const px=player.x-cam, frame=Math.floor(walk)%8, sw=443, sh=443;
-    if(hero.complete&&hero.naturalWidth){ctx.save();if(player.invuln>0&&Math.floor(time/80)%2)ctx.globalAlpha=.45;const crouch=player.grounded&&keys.has("s");const bodyH=crouch?59:82;const bodyY=floor-bodyH;if(!player.grounded){ctx.translate(px+35,player.y+38);ctx.rotate(facing*.08);ctx.translate(-(px+35),-(player.y+38));}if(facing<0){ctx.translate(px+70,0);ctx.scale(-1,1);ctx.drawImage(hero,(frame%4)*sw,Math.floor(frame/4)*sh,sw,sh,0,bodyY,70,bodyH);}else ctx.drawImage(hero,(frame%4)*sw,Math.floor(frame/4)*sh,sw,sh,px,bodyY,70,bodyH);ctx.restore();}else{ctx.fillStyle="#233e33";ctx.fillRect(px,player.y+16,44,58);ctx.fillStyle="#d99c79";ctx.beginPath();ctx.arc(px+22,player.y+12,14,0,Math.PI*2);ctx.fill();}
+    if(hero.complete&&hero.naturalWidth){ctx.save();if(player.invuln>0&&Math.floor(time/80)%2)ctx.globalAlpha=.45;const crouch=player.grounded&&keys.has("s");const bodyH=crouch?59:82;const bodyY=(player.grounded?floor:player.y+74)-bodyH;if(!player.grounded){ctx.translate(px+35,player.y+38);ctx.rotate(facing*.08);ctx.translate(-(px+35),-(player.y+38));}if(facing<0){ctx.translate(px+70,0);ctx.scale(-1,1);ctx.drawImage(hero,(frame%4)*sw,Math.floor(frame/4)*sh,sw,sh,0,bodyY,70,bodyH);}else ctx.drawImage(hero,(frame%4)*sw,Math.floor(frame/4)*sh,sw,sh,px,bodyY,70,bodyH);ctx.restore();}else{ctx.fillStyle="#233e33";ctx.fillRect(px,player.y+16,44,58);ctx.fillStyle="#d99c79";ctx.beginPath();ctx.arc(px+22,player.y+12,14,0,Math.PI*2);ctx.fill();}
     if(player.attack>0){const progress=1-player.attack/.36, startX=px+(facing>0?49:19), startY=player.y+34;ctx.save();ctx.translate(startX,startY);ctx.scale(facing,1);ctx.strokeStyle="#fff0c8";ctx.lineWidth=7;ctx.lineCap="round";ctx.shadowColor="#ffe4a3";ctx.shadowBlur=18;ctx.beginPath();ctx.arc(7,3,37,-1.45+progress*1.6,.55+progress*1.6);ctx.stroke();ctx.strokeStyle="#f1cf92";ctx.lineWidth=11;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(32,-7+Math.sin(progress*Math.PI)*10);ctx.stroke();ctx.fillStyle="#fff4dc";ctx.beginPath();ctx.arc(35,-7+Math.sin(progress*Math.PI)*10,7,0,Math.PI*2);ctx.fill();ctx.restore();}
     if(hitFlash>0&&lastHitX>-1000){const hx=lastHitX-cam;ctx.save();ctx.strokeStyle="#fff0c8";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(hx-24,floor-68);ctx.lineTo(hx+24,floor-30);ctx.moveTo(hx+22,floor-70);ctx.lineTo(hx-18,floor-28);ctx.stroke();ctx.restore();}
     if(complete){ctx.fillStyle="#111a16dc";ctx.fillRect(0,0,W,H);ctx.textAlign="center";ctx.fillStyle="#f5deb0";ctx.font="bold 38px Georgia";ctx.fillText("You made it to the arch.",W/2,H/2-28);ctx.fillStyle="#fff4df";ctx.font="20px Arial";ctx.fillText("And she’s right there, smiling at you.",W/2,H/2+12);}
@@ -434,7 +452,7 @@ function coupleScene(
 ) {
   panel(
     heading,
-    `<div class="eyebrow">${esc(eyebrow)}</div><h2>${esc(heading)}</h2><div class="novel-stage ${focus}" style="background-image:linear-gradient(180deg,#aeb28a22,#0e1713 96%),url('${backdrop}')"><div class="novel-character"><img src="/assets/characters/aaron.png" alt="Aaron"><span>AARON</span></div><div class="novel-character"><img src="${raivenPortrait}" alt="Raiven"><span>RAIVEN</span></div></div><div class="novel-line"><div class="novel-speaker">${esc(speaker)}</div><p>${esc(line)}</p></div>`,
+    `<div class="eyebrow">${esc(eyebrow)}</div><h2>${esc(heading)}</h2><div class="novel-stage ${focus}" style="background-image:linear-gradient(180deg,#aeb28a22,#0e1713 96%),url('${backdrop}'),url('/assets/realm-1-park-side.png')"><div class="novel-character"><img src="/assets/characters/aaron.png" alt="Aaron"><span>AARON</span></div><div class="novel-character"><img src="${raivenPortrait}" alt="Raiven"><span>RAIVEN</span></div></div><div class="novel-line"><div class="novel-speaker">${esc(speaker)}</div><p>${esc(line)}</p></div>`,
     buttons,
     true,
   );
@@ -470,7 +488,7 @@ function familyDialogueScene(
 function startCarromGame(scene: KingdomScene, marker: Marker, replay = false) {
   type Side = "raiven" | "aaron";
   type Piece = { x: number; y: number; vx: number; vy: number; side: Side | "queen"; pocketed: boolean };
-  modalOpen = true;
+  setModalOpen(true);
   root.innerHTML = `<article class="panel carrom-panel"><div class="eyebrow">June 2020 · playable first-date memory</div><h2>Carrom · Raiven vs Computer Player</h2><p class="carrom-help">Drag the striker backward and release. Your striker resets to your baseline every turn; the computer uses the far baseline. Pocket your own discs for another shot. The red queen needs a cover: pocket one of your discs on that shot or your next shot. A covered queen earns a bonus point. First to 3 points wins.</p><div class="carrom-score"><span>YOU · <b id="carrom-you">0</b></span><span>COMPUTER · <b id="carrom-cpu">0</b></span><span id="carrom-turn">YOUR TURN</span></div><canvas id="carrom-board" width="640" height="640" aria-label="Playable carrom board"></canvas><div class="actions carrom-actions"><button class="btn secondary" id="carrom-back">${replay ? "Back to the path" : "Leave match"}</button><button class="btn ghost" id="carrom-replay" hidden>Play again</button></div></article>`;
   const canvas = root.querySelector<HTMLCanvasElement>("#carrom-board")!;
   const ctx = canvas.getContext("2d")!;
@@ -499,7 +517,7 @@ function startCarromGame(scene: KingdomScene, marker: Marker, replay = false) {
   let queenCovered = false;
   const close = () => {
     if (closed) return;
-    closed = true; cancelAnimationFrame(raf); root.innerHTML = ""; modalOpen = false;
+    closed = true; cancelAnimationFrame(raf); root.innerHTML = ""; setModalOpen(false);
     if (!replay && ended && !scene.markers.find((x) => x.id === "carrom")?.done) {
       scene.completeMarker(marker, "Playable carrom match inspired by the first-date memory. The historic detail remains: Raiven won both games that day.");
       scene.unlockAchievement("FIRST DATE · CARROM CHALLENGER");
@@ -571,9 +589,9 @@ function hudUpdate() {
   const steps = [
     ["sandwich", "conversation", "second-date", "breakup-boss"],
     ["church", "guardian"],
-    ["pregnancy", "inventory", "toybox", "family-timeline", "after-bedtime", "midnight", "quiet"],
+    ["pregnancy", "inventory", "family-timeline", "toybox", "after-bedtime", "midnight", "quiet"],
     ["season", "house", "invisible-load", "clearing"],
-    ["callback", "echo", "guard", "boss", "choice"],
+    ["callback", "echo", "guard", "choice"],
   ][s.levelIndex] || [];
   const done = steps.filter((id) => s.markers.find((m) => m.id === id)?.done).length;
   const hearts =
@@ -710,9 +728,9 @@ function ceremonySequence(scene: KingdomScene) {
       line,
       closing
         ? [{ label: "Let’s go celebrate", action: () => {
-            const music = `<div class="music-credit"><b>Wedding celebration:</b> “Good Thing” · Trip Lee feat. Leah Smith</div><div class="music-frame"><iframe id="good-thing-player" src="https://www.youtube-nocookie.com/embed/CdgihABLoGQ?autoplay=1&playsinline=1&controls=1&rel=0&enablejsapi=1" title="Trip Lee - Good Thing featuring Leah Smith" allow="autoplay; encrypted-media; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div><div class="music-actions"><button class="btn secondary" id="good-thing-sound">Play Good Thing with sound</button><a class="btn ghost" href="https://www.youtube.com/watch?v=CdgihABLoGQ" target="_blank" rel="noopener">Open in YouTube</a></div><p class="small">If the browser blocks autoplay, use the sound button or open the track in YouTube.</p>`;
-            panel("The reception · Good Thing", `<div class="eyebrow">Warm lights, cold air, and finally a dance</div><h2>Okay, this really is pretty sick.</h2>${music}`, [{ label: "Keep the adventure going", action: finish }], true);
-            wireYouTubeSound("good-thing-sound", "good-thing-player");
+            const music = `<div class="music-credit"><b>Wedding celebration:</b> “Good Thing” · Trip Lee feat. Leah Smith</div><div class="music-frame"><iframe id="good-thing-player" src="https://www.youtube-nocookie.com/embed/CdgihABLoGQ?autoplay=1&mute=0&playsinline=1&controls=1&rel=0&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}" title="Trip Lee - Good Thing featuring Leah Smith" allow="autoplay; encrypted-media; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div><div class="music-actions"><button class="btn secondary" id="good-thing-sound">Play Good Thing with sound</button><a class="btn ghost" href="https://www.youtube.com/watch?v=CdgihABLoGQ" target="_blank" rel="noopener">Open in YouTube</a></div><p class="small">The song starts with the scene. If your browser keeps it quiet, tap Play with sound, or open the track in YouTube.</p>`;
+            panel("The reception · Good Thing", `<div class="eyebrow">Warm lights, cold air, and finally a dance</div><h2>Okay, this really is pretty sick.</h2>${music}`, [{ label: "See the wedding photos", action: () => weddingSlideshow(finish) }], true);
+            wireYouTubeSound("good-thing-sound", "good-thing-player", "CdgihABLoGQ", "Good Thing");
           } }]
         : [{ label: "Stay with her", action: continueVows }],
     );
@@ -732,17 +750,49 @@ function ceremonySequence(scene: KingdomScene) {
   );
 }
 
-function wireYouTubeSound(buttonId: string, frameId: string) {
+function weddingSlideshow(onDone: () => void) {
+  const filenames = Array.from({length:10},(_,i)=>`wedding-${String(i+1).padStart(2,"0")}.jpg`);
+  const base = "/assets/photos/wedding/";
+  const files=[...filenames.map(name=>({path:base+name,alt:"Wedding day photograph",caption:"A favorite frame from the day we said our vows."})),{path:"/assets/photos/memories/honeymoon.jpg",alt:"Honeymoon photograph",caption:"And then, a little time away together."}];
+  void Promise.all(files.map(async file => {
+    try { return (await fetch(file.path,{method:"HEAD"})).ok ? file : null; }
+    catch { return null; }
+  })).then(found => {
+    const photos=found.filter((file):file is {path:string;alt:string;caption:string}=>!!file);
+    let current=0;
+    const render=()=>{
+      const shown=photos[current];
+      const body=shown
+        ? `<div class="eyebrow">${current===photos.length-1&&shown.alt==="Honeymoon photograph"?"A little later · the honeymoon":"October 23, 2021 · ${current+1} of ${photos.length}"}</div><h2>${current===photos.length-1&&shown.alt==="Honeymoon photograph"?"And then, a little time away":"A little more of that day"}</h2><div class="wedding-slide"><img src="${shown.path}" alt="${shown.alt}"></div><p class="small">${shown.caption}</p>`
+        : `<div class="eyebrow">October 23, 2021 · the photo album</div><h2>One more look at our day</h2><div class="wedding-slide wedding-slide-empty"><span>♡</span><p>Add photos to <b>public/assets/photos/wedding/</b> as <b>wedding-01.jpg</b> through <b>wedding-10.jpg</b>. Add <b>public/assets/photos/memories/honeymoon.jpg</b> for the closing frame. The slideshow will pick up any files you add.</p></div>`;
+      const buttons=photos.length
+        ? [
+            ...(current>0?[{label:"Previous",kind:"secondary",action:()=>{current--;render();}}]:[]),
+            ...(current<photos.length-1?[{label:"Next photo",action:()=>{current++;render();}}]:[{label:"Continue the adventure",action:onDone}]),
+            {label:"Skip photos",kind:"ghost",action:onDone},
+          ]
+        : [{label:"Continue the adventure",action:onDone}];
+      panel("Wedding photo slideshow",body,buttons,true);
+    };
+    render();
+  });
+}
+
+function wireYouTubeSound(buttonId: string, frameId: string, videoId: string, title: string) {
   const button = root.querySelector<HTMLButtonElement>(`#${buttonId}`);
   const frame = root.querySelector<HTMLIFrameElement>(`#${frameId}`);
   if (!button || !frame) return;
   button.onclick = () => {
-    const target = frame.contentWindow;
-    if (!target) return;
-    for (const func of ["unMute", "setVolume", "playVideo"]) {
-      target.postMessage(JSON.stringify({ event: "command", func, args: func === "setVolume" ? [100] : [] }), "*");
-    }
-    button.textContent = "Sound on · Good Thing playing";
+    // Reload from this user gesture so the browser can authorize audible playback.
+    // The initial autoplay is muted by browser policy; this explicit action asks for sound.
+    const origin = encodeURIComponent(window.location.origin);
+    frame.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=0&playsinline=1&controls=1&rel=0&enablejsapi=1&origin=${origin}`;
+    button.textContent = `Starting “${title}” with sound…`;
+    window.setTimeout(() => {
+      if (button.isConnected && (button.textContent || "").startsWith("Starting")) {
+        button.textContent = "If it’s quiet, press play in the video";
+      }
+    }, 1800);
   };
 }
 
@@ -750,11 +800,11 @@ function epilogue(scene: KingdomScene) {
   const letter = esc(story.anniversaryLetter);
   panel(
     "October 23, 2026",
-    `<div class="eyebrow">October 23, 2026 · five years</div><h2>The Promise and the Choice</h2><div class="document">${letter}</div><div class="music-credit"><b>Listen together:</b> “Spend My Life with You” · Eric Benét feat. Tamia</div><div class="music-frame"><iframe id="spend-life-player" src="https://www.youtube-nocookie.com/embed/YS8ba414eOg?autoplay=1&playsinline=1&controls=1&rel=0&enablejsapi=1" title="Eric Benét featuring Tamia - Spend My Life With You" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div><div class="music-actions"><button class="btn secondary" id="spend-life-sound">Play Spend My Life with You with sound</button><a class="btn ghost" href="https://www.youtube.com/watch?v=YS8ba414eOg" target="_blank" rel="noopener">Open in YouTube</a></div><p class="small">If the browser blocks autoplay, use the sound button or open the track in YouTube.</p>`,
+    `<div class="eyebrow">October 23, 2026 · five years</div><h2>The Promise and the Choice</h2><div class="document">${letter}</div><div class="music-credit"><b>Listen together:</b> “Spend My Life with You” · Eric Benét feat. Tamia</div><div class="music-frame"><iframe id="spend-life-player" src="https://www.youtube-nocookie.com/embed/YS8ba414eOg?autoplay=1&mute=0&playsinline=1&controls=1&rel=0&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}" title="Eric Benét featuring Tamia - Spend My Life With You" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div><div class="music-actions"><button class="btn secondary" id="spend-life-sound">Play Spend My Life with You with sound</button><a class="btn ghost" href="https://www.youtube.com/watch?v=YS8ba414eOg" target="_blank" rel="noopener">Open in YouTube</a></div><p class="small">The song starts with the scene. If your browser keeps it quiet, tap Play with sound, or open the track in YouTube.</p>`,
     [{ label: "Continue", action: () => finalPhotographs(scene) }],
     true,
   );
-  wireYouTubeSound("spend-life-sound", "spend-life-player");
+  wireYouTubeSound("spend-life-sound", "spend-life-player", "YS8ba414eOg", "Spend My Life with You");
 }
 async function finalPhotographs(scene: KingdomScene) {
   showVows(() => weddingPhoto(scene));
@@ -769,7 +819,7 @@ async function weddingPhoto(scene: KingdomScene) {
       const res = await fetch(path, { method: "HEAD" });
       if (res.ok)
         found.push(
-          `<img src="${path}" alt="${label}" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin:8px 0">`,
+          `<div class="epilogue-photo epilogue-photo-wedding"><img src="${path}" alt="${label}"></div>`,
         );
     } catch {}
   }
@@ -823,14 +873,14 @@ const levels = [
     colors: ["#29483c", "#53734e", "#dfc079"],
     intro:
       "June 2020. Jersey Mike’s instead of Chipotle, a walk through Heritage Park, and two people trying to act normal on a first date.",
-    objective: "Meet Raiven, share the first-date conversation, relive the second date, then climb the breakup boss · optional carrom",
+    objective: "Meet Raiven, share a couple of early dates, and find your way through the first hard turn · optional carrom",
     markers: [
       ["sandwich", "Jersey Mike’s · first meeting", 360, 300],
       ["carrom", "Optional · carrom vs computer", 730, 470],
       ["replay-carrom", "Replay carrom vs Computer Player", 730, 570],
       ["conversation", "The quiet clearing", 1120, 310],
       ["second-date", "The second date · frozen yogurt", 1680, 720],
-      ["breakup-boss", "BOSS · climb through the first break", 2380, 460],
+      ["breakup-boss", "A difficult turning point", 2380, 460],
     ],
     ability: "Memory Echo",
   },
@@ -846,9 +896,7 @@ const levels = [
       ["vows", "The vow document", 1040, 650],
       ["guardian", "Run to the wooden arch", 1560, 730],
       ["side-proposal", "The backyard proposal", 310, 760],
-      ["side-warmth", "Hand warmers", 1080, 790],
       ["side-colors", "The blue suits", 1390, 230],
-      ["side-honeymoon", "A strawberry daiquiri", 1470, 830],
     ],
     ability: "Promise Guard",
   },
@@ -858,12 +906,12 @@ const levels = [
     colors: ["#51433c", "#84715a", "#e7b365"],
     intro:
       "The house is full of tiny shoes, snack crumbs, missing keys, and three kids who all want Dad at once.",
-    objective: "Hear the first baby news, take on two parenting challenges, meet each kid in order, and make it through the night shift",
+    objective: "Hear the first baby news, get ready for an outing, follow the kids as they grow, and make it through one long night",
     markers: [
       ["pregnancy", "The first little heartbeat", 260, 520],
       ["inventory", "The first family outing", 520, 300],
-      ["toybox", "Toybox Trouble", 790, 320],
       ["family-timeline", "Growing up, one day at a time", 1120, 430],
+      ["toybox", "Toybox Trouble", 790, 320],
       ["after-bedtime", "A quiet minute together", 1510, 475],
       ["midnight", "The Midnight Marathon", 1840, 580],
       ["quiet", "Morning snuggle", 2150, 230],
@@ -871,8 +919,6 @@ const levels = [
       ["side-we-da-boys", "We da boys", 490, 750],
       ["side-crusty-dusty", "Naomi noticed something", 880, 840],
       ["side-horse-express", "Horsey Express", 1450, 390],
-      ["side-seafood", "The family vote", 250, 850],
-      ["side-office", "The Office of Shame", 1420, 720],
       ["side-clarinet", "A clarinet by the fireplace", 1080, 160],
       ["side-lost-item", "The thing Dad misplaced", 520, 180],
       ["side-family-night", "The living-room archive", 1040, 850],
@@ -885,12 +931,12 @@ const levels = [
     colors: ["#32483d", "#4e6570", "#d7cfb6"],
     intro:
       "One connected landscape moves through spring, summer, autumn, and winter. The path changes, but the Heartlight is still there.",
-    objective: "Restore the seasonal path, share a home memory, face the invisible-load boss, and reach the clearing",
+    objective: "Set the seasonal path, share a home memory, and find a way into the clearing",
     markers: [
       ["season", "Seasonal mechanism", 420, 330],
       ["house", "The changing house", 900, 570],
       ["winter-memory", "A page beneath the snow", 1220, 260],
-      ["invisible-load", "BOSS · the invisible load", 1550, 470],
+      ["invisible-load", "One full day at home", 1550, 470],
       ["clearing", "The four-season clearing", 2230, 690],
       ["side-california", "The long way home", 180, 830],
       ["side-invested", "A practical act of care", 940, 160],
@@ -904,12 +950,11 @@ const levels = [
     intro:
       "The final realm begins as a shining kingdom and slowly remembers the life that built it.",
     objective:
-      "Use what you have learned; face The Unwritten; choose to continue",
+      "Return to the promise, follow the Heartlight, and choose the next page together",
     markers: [
       ["callback", "A familiar piece of paper", 360, 300],
       ["echo", "Hidden Heartlight traces", 690, 590],
       ["guard", "The open crossing", 930, 320],
-      ["boss", "The Unwritten", 1220, 470],
       ["choice", "The next page", 1390, 700],
       ["side-road-trip", "The family road map", 220, 790],
       ["side-alternator", "The van’s stubborn alternator", 750, 820],
@@ -928,7 +973,6 @@ class KingdomScene extends Phaser.Scene {
   keys!: Record<string, Phaser.Input.Keyboard.Key>;
   enemies!: Phaser.Physics.Arcade.Group;
   platforms!: Phaser.Physics.Arcade.StaticGroup;
-  hazards!: Phaser.Physics.Arcade.StaticGroup;
   courseDecor: Phaser.GameObjects.GameObject[] = [];
   courseCheckpoints: number[] = [];
   companion!: Phaser.GameObjects.Container;
@@ -959,8 +1003,6 @@ class KingdomScene extends Phaser.Scene {
   guardTimer = 0;
   dashTimer = 0;
   attackCooldown = 0;
-  hurtCooldown = 0;
-  bossPhase = 0;
   guardianStarted = false;
   toyboxStarted = false;
   runCount = 0;
@@ -996,7 +1038,6 @@ class KingdomScene extends Phaser.Scene {
     if (cardLoading) cardLoading.textContent = "Your quest is ready.";
     this.physics.world.setBounds(0, 0, this.worldW, this.worldH);
     this.platforms = this.physics.add.staticGroup();
-    this.hazards = this.physics.add.staticGroup();
     this.decor = this.add.graphics();
     this.createEnemyTexture();
     this.createCourseTextures();
@@ -1008,8 +1049,6 @@ class KingdomScene extends Phaser.Scene {
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(5);
     this.physics.add.collider(this.player, this.platforms);
-    this.physics.add.overlap(this.player, this.hazards, () => this.takeCourseHit());
-    this.physics.add.overlap(this.player, this.enemies, (_player, enemy) => this.enemyTouch(enemy));
     const companionGlow = this.add.circle(0, 0, 23, 0xffd58e, 0.18);
     const companionHeart = this.add.star(0, 0, 6, 7, 17, 0xffe4ae, 0.9);
     this.companion = this.add
@@ -1027,9 +1066,12 @@ class KingdomScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, this.worldW, this.worldH);
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
     this.cursors = this.input.keyboard!.createCursorKeys();
-    this.keys = this.input.keyboard!.addKeys(
-      "W,A,S,D,E,J,Q,SPACE,SHIFT,TAB,ESC,ENTER,ONE,TWO,THREE,FOUR",
-    ) as Record<string, Phaser.Input.Keyboard.Key>;
+    this.keys = {
+      ...this.input.keyboard!.addKeys("W,A,S,D,E,J,Q,SPACE,SHIFT,TAB,ESC,ENTER", true),
+      // The ability hotkeys must not call preventDefault: that blocks digits
+      // from reaching the number puzzle's HTML input while a modal is open.
+      ...this.input.keyboard!.addKeys("ONE,TWO,THREE,FOUR", false),
+    } as Record<string, Phaser.Input.Keyboard.Key>;
     this.input.keyboard!.on("keydown-TAB", () => {
       if (this.started && !modalOpen) {
         openJournal();
@@ -1096,28 +1138,18 @@ class KingdomScene extends Phaser.Scene {
       g.generateTexture(`course-${i}`, 320, 64);
       g.destroy();
     });
-    const danger = this.make.graphics({ x: 0, y: 0 });
-    danger.fillStyle(0x3b2530, 0.32).fillRoundedRect(0, 24, 160, 12, 4);
-    danger.fillStyle(0xd47c66);
-    for (let x = 0; x < 160; x += 20) {
-      danger.fillTriangle(x, 30, x + 10, 2, x + 20, 30);
-    }
-    danger.lineStyle(2, 0xffdec0, 0.65).strokeRoundedRect(0, 24, 160, 12, 4);
-    danger.generateTexture("course-spikes", 160, 38);
-    danger.destroy();
   }
   buildCourse(level: number) {
     this.platforms.clear(true, true);
-    this.hazards.clear(true, true);
     this.courseDecor.forEach((item) => item.destroy());
     this.courseDecor = [];
     this.checkpointX = 150;
     const courses = [
-      { floors: [[0,640],[780,600],[1510,530],[2180,620]], ledges: [[690,670,145],[1350,670,155],[1740,645,170],[2420,635,165]], spikes: [540,1120,1720,1930,2550] },
-      { floors: [[0,640],[800,570],[1510,530],[2170,630]], ledges: [[700,670,145],[1370,645,155],[2070,670,150],[2460,630,155]], spikes: [510,1090,1830,2520] },
-      { floors: [[0,700],[850,560],[1540,480],[2150,650]], ledges: [[760,680,150],[1370,650,160],[2040,640,175],[2480,655,145]], spikes: [560,1160,1900,2400,2580] },
-      { floors: [[0,620],[760,630],[1530,470],[2130,670]], ledges: [[690,675,150],[1370,620,180],[2040,660,165],[2480,625,150]], spikes: [510,1120,1570,1840,2580] },
-      { floors: [[0,700],[860,550],[1520,520],[2180,620]], ledges: [[760,675,150],[1380,640,160],[2050,625,170],[2480,655,150]], spikes: [570,1160,1890,2580] },
+      { floors: [[0,640],[780,600],[1510,530],[2180,620]], ledges: [[690,670,145],[1350,670,155],[1740,645,170],[2420,635,165]] },
+      { floors: [[0,640],[800,570],[1510,530],[2170,630]], ledges: [[700,670,145],[1370,645,155],[2070,670,150],[2460,630,155]] },
+      { floors: [[0,700],[850,560],[1540,480],[2150,650]], ledges: [[760,680,150],[1370,650,160],[2040,640,175],[2480,655,145]] },
+      { floors: [[0,620],[760,630],[1530,470],[2130,670]], ledges: [[690,675,150],[1370,620,180],[2040,660,165],[2480,625,150]] },
+      { floors: [[0,700],[860,550],[1520,520],[2180,620]], ledges: [[760,675,150],[1380,640,160],[2050,625,170],[2480,655,150]] },
     ];
     const course = courses[level]!;
     const texture = `course-${level}`;
@@ -1130,19 +1162,6 @@ class KingdomScene extends Phaser.Scene {
     // cannot strand Aaron below the playable level.
     platform(this.worldW / 2, 760, this.worldW);
     course.ledges.forEach(([x, top, width]) => platform(x!, top!, width!));
-    const markerXs = [
-      ...levels[level]!.markers.map((m) => m[2] as number),
-      this.worldW - 150, // the exit marker is added after the realm is completed
-    ];
-    const safeSpikes = course.spikes.filter((x) =>
-      markerXs.every((markerX) => Math.abs(markerX - x) >= 230),
-    );
-    safeSpikes.forEach((x, i) => {
-      const spike = this.hazards.create(x!, 738, "course-spikes") as Phaser.Physics.Arcade.Sprite;
-      spike.setDepth(-1).setAlpha(0.96);
-      if (i % 2) spike.setTint(0xd4a9a0);
-      spike.refreshBody();
-    });
     this.courseCheckpoints = [760, 1450, 2200];
     this.courseCheckpoints.forEach((x) => {
       const post = this.add.rectangle(x, 685, 8, 108, 0xe5c77d, 0.78).setDepth(0);
@@ -1176,7 +1195,6 @@ class KingdomScene extends Phaser.Scene {
     this.guardianStarted = false;
     this.toyboxStarted = false;
     this.runCount = 0;
-    this.bossPhase = 0;
     this.pausedByMenu = false;
     this.gameOverShown = false;
     localStorage.removeItem(storageKey);
@@ -1201,8 +1219,8 @@ class KingdomScene extends Phaser.Scene {
     this.activeAbility = save.activeAbility || "";
     this.fragments = save.fragments || 0;
     this.hp = save.hp || 5;
-    this.memoryLog = save.memoryLog || [];
-    this.achievements = save.achievements || [];
+    this.memoryLog = (save.memoryLog || []).filter((line: unknown) => !/office of shame|cable management not found/i.test(String(line)));
+    this.achievements = (save.achievements || []).filter((achievement: string) => achievement !== "CABLE MANAGEMENT NOT FOUND");
     this.abilities = save.abilities || [];
     this.vowsUnlocked = !!save.vowsUnlocked;
     this.loadLevel(this.levelIndex);
@@ -1233,25 +1251,17 @@ class KingdomScene extends Phaser.Scene {
     });
     if (this.levelIndex === 0) restoreSequence(["sandwich", "conversation", "second-date", "breakup-boss"]);
     if (this.levelIndex === 1) { restoreSequence(["church", "guardian"]); const vows=this.markers.find((item)=>item.id==="vows"); if(vows)vows.active=false; }
-    if (this.levelIndex === 2) restoreSequence(["pregnancy", "inventory", "toybox", "family-timeline", "after-bedtime", "midnight", "quiet"]);
+    if (this.levelIndex === 2) restoreSequence(["pregnancy", "inventory", "family-timeline", "toybox", "after-bedtime", "midnight", "quiet"]);
     if (this.levelIndex === 3) {
       restoreSequence(["season", "house", "invisible-load", "clearing"]);
       const winter=this.markers.find((item)=>item.id==="winter-memory"); if(winter)winter.active=!!this.markers.find((item)=>item.id==="season")?.done&&!winter.done;
     }
-    if (this.levelIndex === 4) restoreSequence(["callback", "echo", "guard", "boss", "choice"]);
+    if (this.levelIndex === 4) restoreSequence(["callback", "echo", "guard", "choice"]);
     this.player.setPosition(Phaser.Math.Clamp(save.playerX ?? 150, 150, this.worldW - 100), 660);
     this.guardianStarted = false;
     this.toyboxStarted = false;
     this.runCount = this.markers.some((m) => m.id === "toybox" && m.done) ? 1 : 0;
-    this.bossPhase = Number(save.bossPhase || 0);
     this.completed = !!save.completed;
-    if (this.levelIndex === 4 && this.bossPhase > 0 && this.bossPhase < 3 && !this.markers.find((m) => m.id === "boss")?.done) {
-      this.spawnBoss();
-      if (this.bossPhase === 2) {
-        const boss = this.enemies.getChildren()[this.enemies.getChildren().length - 1] as Phaser.Physics.Arcade.Sprite;
-        boss.setData("hp", 12).setScale(1.25);
-      }
-    }
     this.refreshHud();
     this.save();
     localStorage.removeItem(previousStorageKey);
@@ -1283,7 +1293,6 @@ class KingdomScene extends Phaser.Scene {
         markers: this.markers.map(({ id, done, active }) => ({ id, done, active })),
         playerX: this.player?.x ?? 150,
         playerY: this.player?.y ?? 500,
-        bossPhase: this.bossPhase,
         guardianStarted: this.guardianStarted,
         toyboxStarted: this.toyboxStarted,
         runCount: this.runCount,
@@ -1306,7 +1315,6 @@ class KingdomScene extends Phaser.Scene {
     this.player.setPosition(150, 660);
     this.hp = Math.max(3, this.hp);
     this.portalReady = false;
-    this.bossPhase = 0;
     this.guardianStarted = false;
     this.toyboxStarted = false;
     this.runCount = 0;
@@ -1333,9 +1341,9 @@ class KingdomScene extends Phaser.Scene {
       });
     if (idx === 0) lock(["replay-carrom", "conversation", "second-date", "breakup-boss"]);
     if (idx === 1) lock(["vows", "guardian"]);
-    if (idx === 2) lock(["inventory", "toybox", "family-timeline", "after-bedtime", "midnight", "quiet"]);
+    if (idx === 2) lock(["inventory", "family-timeline", "toybox", "after-bedtime", "midnight", "quiet"]);
     if (idx === 3) lock(["house", "winter-memory", "invisible-load", "clearing"]);
-    if (idx === 4) lock(["echo", "guard", "boss", "choice"]);
+    if (idx === 4) lock(["echo", "guard", "choice"]);
     this.refreshHud();
     this.save();
     this.save();
@@ -1384,10 +1392,10 @@ class KingdomScene extends Phaser.Scene {
     const objectGlyphs: Record<string, string> = {
       sandwich: "🥪", carrom: "◉", "replay-carrom": "↻", conversation: "💬", "second-date": "🍦",
       "breakup-boss": "⚔", reunion: "↔", church: "🔎", vows: "📜", guardian: "🌿", "side-proposal": "💍",
-      "side-warmth": "🧤", "side-colors": "🌼", "side-honeymoon": "🥤", pregnancy: "♡", inventory: "🎒",
+      "side-colors": "🌼", pregnancy: "♡", inventory: "🎒",
       toybox: "🧸", "family-timeline": "👣", "after-bedtime": "☕", midnight: "🌙", quiet: "☀️",
       season: "❄", house: "⌂", "winter-memory": "📜", "invisible-load": "⚒", clearing: "✦", callback: "📄", echo: "✧",
-      guard: "⬡", boss: "◇", choice: "📖", exit: "→", "epilogue-gate": "♡",
+      guard: "⬡", choice: "📖", exit: "→", "epilogue-gate": "♡",
     };
     const glyph = objectGlyphs[id] || (id.startsWith("side-") ? "✦" : "•");
     const glow = this.add.circle(x, y, 34, 0xf2c574, 0.14).setDepth(2);
@@ -1495,7 +1503,6 @@ class KingdomScene extends Phaser.Scene {
     const entry=story.optionalMemories.find(item=>item.id===m.id.slice("side-".length));
     if(!entry){toast("This little memory is still being written.");return;}
     if(entry.id==="number-game"){this.numberGame(m,entry);return;}
-    if(entry.id==="warmth"){this.warmthPuzzle(m,entry);return;}
     if(entry.id==="colors"){this.colorPuzzle(m,entry);return;}
     const keep=()=>{this.completeMarker(m,entry.memory);this.unlockAchievement(entry.achievement);};
     const kidMemories:Record<string,{child:string;label:string;line:string;answers:[string,string];reply:string;photo?:string}>={
@@ -1509,10 +1516,7 @@ class KingdomScene extends Phaser.Scene {
     if(kid){familyDialogueScene(`A little scene from home · ${kid.child} · imagined dialogue`,kid.label,kid.child,kid.line,kid.answers.map(answer=>({label:answer,action:()=>familyDialogueScene(`A little scene from home · ${kid.child}`,kid.label,"Aaron",answer,[{label:"Keep this one",action:()=>familyDialogueScene(`A little scene from home · ${kid.child}`,"That’s us",kid.child,kid.reply,[{label:"Save the memory",action:keep}],kid.photo)}],kid.photo)})),kid.photo);return;}
     const scripts:Record<string,{start:string;answers:[string,string];reply:[string,string];place?:string}>={
       preunion:{start:"It’s funny that we found each other again on Upward after deciding we should just be friends for a while.",answers:["I’m glad we gave it another chance.","Turns out the friendship plan didn’t last long."],reply:["Me too. The easy part was always talking to you.","We were not especially convincing at being just friends."],place:"/assets/realm-1-park-side.png"},
-      proposal:{start:"I still don’t remember you actually asking the question.",answers:["I’m pretty sure I asked.","You asked what you were doing with the ring."],reply:["I remember saying, ‘What are you doing?’", "And then we both figured it out anyway."],place:"/assets/realm-2-wedding-side.png"},
-      honeymoon:{start:"I still think about those strawberry daiquiris at Bolongo Bay.",answers:["We may never find one that good again.","I still think there was a little something extra."],reply:["They were virgin. I just ordered several a day.","You can keep investigating that theory."],place:"/assets/realm-2-wedding-side.png"},
-      seafood:{start:"The kids are starting to vote with me on seafood, you know.",answers:["I see the numbers shifting against me.","I’ll keep campaigning for chicken."],reply:["Three to one is not looking great for you.","We’ll let them decide at dinner."],place:"/assets/realm-3-home.jpg"},
-      office:{start:"Your desk has a very specific rule about where the tower and cables go.",answers:["The left side is the correct side.","I’m open to feedback. Eventually."],reply:["I’m not touching the cables. I know better.","I’ll put it on the family meeting agenda."],place:"/assets/realm-3-home.jpg"},
+      proposal:{start:"I still don’t remember you actually asking the question.",answers:["I’m pretty sure I asked.","You asked what you were doing with the ring."],reply:["I remember saying, ‘What are you doing?’", "And then we both figured it out anyway."],place:"/assets/photos/memories/proposal.jpg"},
       clarinet:{start:"Your clarinet is still there by the fireplace. I know you miss playing.",answers:["One day I’d still love to play with a symphony.","Maybe we can find a little time for it again."],reply:["I hope you do. I love hearing you play.","The dream can wait until the house is a little quieter."],place:"/assets/realm-3-home.jpg"},
       california:{start:"You drove all the way from Altadena to Lancaster and back again so I could stay with Jamie.",answers:["I wanted you to have time with everybody.","Those drives gave us plenty of time to talk."],reply:["You made a long visit feel a lot less lonely.","You did rack up some miles that week."],place:"/assets/realm-1-park-side.png"},
       invested:{start:"You paid off my student loans and car loan not long after the wedding.",answers:["I wanted to make the road a little lighter for us.","It felt good to take something heavy off the list."],reply:["It meant more than I knew how to say then.","That was one very practical love note."],place:"/assets/realm-4-seasons.jpg"},
@@ -1528,39 +1532,26 @@ class KingdomScene extends Phaser.Scene {
     coupleScene(`${entry.eyebrow} · imagined game dialogue`,entry.title,"Raiven",script.start,script.answers.map((answer,index)=>({label:answer,kind:index?"secondary":undefined,action:()=>coupleScene(`${entry.eyebrow} · imagined game dialogue`,entry.title,"Aaron",answer,[{label:"Hear her answer",action:()=>finish(index)}],"aaron",script.place||"/assets/realm-1-park-side.png",wedding)})),"raiven",script.place||"/assets/realm-1-park-side.png",wedding);
   }
   numberGame(m: Marker, entry: StoryData["optionalMemories"][number]) {
-    modalOpen = true;
+    setModalOpen(true);
     const target = 1 + Math.floor(Math.random() * 100);
     let tries = 0;
-    let hints = 3;
+    let hints = 4;
+    let guessText = "50";
     const usedHints = new Set<string>();
     const render = (message = "") => {
-      root.innerHTML = `<section class="number-game"><header class="mini-head"><div><div class="eyebrow">Family game night · a faithful memory</div><h1>Pick a number, any number.</h1><p>One to one hundred. You get seven guesses and three questions.</p></div><button class="btn secondary" id="number-leave">Back to the family room</button></header><div class="number-board"><div class="number-scene"><div class="number-glow">?</div><div class="number-card">${message || "Raiven has picked a number. What’s your first guess?"}</div><div class="number-guess"><input id="number-input" type="number" min="1" max="100" value="50"><button class="btn" id="number-submit">Guess</button></div><div class="number-hints"><div class="hint-head">ASK A QUESTION · ${hints} LEFT</div>${[{id:"parity",label:"Is it even or odd?"},{id:"half",label:"Is it above or below 50?"},{id:"digits",label:"How many digits?"}].map(h=>`<button class="hint-btn" data-hint="${h.id}" ${usedHints.has(h.id)||!hints?"disabled":""}>${h.label}</button>`).join("")}</div><div class="guess-history" id="guess-history">Guesses: ${tries} / 7</div></div></div><p class="small number-footnote">This round’s number is made up for the game. The real memory is how you both approached the puzzle: Raiven looked for a life milestone; Aaron started narrowing the math.</p></section>`;
+      root.innerHTML = `<section class="number-game"><header class="mini-head"><div><div class="eyebrow">Family game night · a faithful memory</div><h1>Pick a number, any number.</h1><p>Type any number from 1 to 100. You get seven guesses and four logic questions.</p></div><button class="btn secondary" id="number-leave">Back to the family room</button></header><div class="number-board"><div class="number-scene"><div class="number-glow">?</div><div class="number-card">${message || "Raiven has picked a number. What’s your first guess?"}</div><div class="number-guess"><input id="number-input" type="number" inputmode="numeric" min="1" max="100" step="1" placeholder="Type 1–100" value="${esc(guessText)}" autocomplete="off" aria-label="Type a number from 1 to 100"><button class="btn" id="number-submit">Guess</button></div><div class="number-hints"><div class="hint-head">ASK A QUESTION · ${hints} LEFT</div>${[{id:"parity",label:"Is the whole number even?"},{id:"half",label:"Is it above or below 50?"},{id:"digits",label:"How many digits?"},{id:"first",label:"Is the first digit even?"},{id:"sum",label:"Is the digit sum even?"},{id:"ends",label:"Is the last digit bigger than the first?"},{id:"five",label:"Is it a multiple of five?"}].map(h=>`<button class="hint-btn" data-hint="${h.id}" ${usedHints.has(h.id)||!hints?"disabled":""}>${h.label}</button>`).join("")}</div><div class="guess-history" id="guess-history">Guesses: ${tries} / 7</div></div></div><p class="small number-footnote">This round’s number is made up for the game. The real memory is how you both approached the puzzle: Raiven looked for a life milestone; Aaron started narrowing the math.</p></section>`;
       root.querySelector<HTMLButtonElement>("#number-leave")!.onclick=()=>closeMinigame(this);
       const input=root.querySelector<HTMLInputElement>("#number-input")!;
       const submit=()=>{const n=Number(input.value);if(!Number.isInteger(n)||n<1||n>100){toast("Pick a whole number from 1 to 100.");return;}tries++;const history=root.querySelector<HTMLElement>("#guess-history")!;history.textContent=`Guesses: ${tries} / 7`;if(n===target){sceneWin();return;}const result=n<target?"Higher!":"Lower!";root.querySelector<HTMLElement>(".number-card")!.textContent=result; if(tries>=7){root.querySelector<HTMLElement>(".number-card")!.textContent=`The number was ${target}. Want another round?`;root.querySelector<HTMLButtonElement>("#number-submit")!.textContent="Try again";root.querySelector<HTMLButtonElement>("#number-submit")!.onclick=()=>{tries=0;render();};}};
       root.querySelector<HTMLButtonElement>("#number-submit")!.onclick=submit;
-      input.onkeydown=(e)=>{if(e.key==="Enter")submit();};
-      root.querySelectorAll<HTMLButtonElement>("[data-hint]").forEach(btn=>btn.onclick=()=>{const id=btn.dataset.hint!;if(usedHints.has(id)||hints<=0)return;usedHints.add(id);hints--;let answer="";if(id==="parity")answer=target%2===0?"It’s even.":"It’s odd.";if(id==="half")answer=target>50?"It’s above 50.":target<50?"It’s below 50.":"It’s exactly 50.";if(id==="digits")answer=String(target).length===1?"It has one digit.":"It has two digits.";render(answer);});
+      input.oninput=()=>guessText=input.value;input.onkeydown=(e)=>{if(e.key==="Enter")submit();};input.focus();input.select();
+      root.querySelectorAll<HTMLButtonElement>("[data-hint]").forEach(btn=>btn.onclick=()=>{const id=btn.dataset.hint!;if(usedHints.has(id)||hints<=0)return;usedHints.add(id);hints--;let answer="";if(id==="parity")answer=target%2===0?"It’s even.":"It’s odd.";if(id==="half")answer=target>50?"It’s above 50.":target<50?"It’s below 50.":"It’s exactly 50.";if(id==="digits"){const count=String(target).length;answer=`It has ${count} ${count===1?"digit":"digits"}.`;}if(id==="first")answer=Number(String(target)[0])%2===0?"Yes, its first digit is even.":"No, its first digit is odd.";if(id==="sum")answer=String(target).split("").reduce((total,digit)=>total+Number(digit),0)%2===0?"Yes, its digits add up to an even number.":"No, its digits add up to an odd number.";if(id==="ends")answer=Number(String(target).slice(-1))>Number(String(target)[0])?"Yes, the last digit is bigger.":"No, the last digit is not bigger.";if(id==="five")answer=target%5===0?"Yes, it is a multiple of five.":"No, it is not a multiple of five.";render(answer);});
     };
     const sceneWin=()=>{this.completeMarker(m,entry.memory);this.unlockAchievement(entry.achievement);root.innerHTML=`<section class="number-game"><div class="number-win"><div class="eyebrow">You got it</div><h1>That’s my guy.</h1><p>The clever part was how you got there. The two of you always came at the puzzle from different angles.</p><button class="btn" id="number-back">Back to the family room</button></div></section>`;root.querySelector<HTMLButtonElement>("#number-back")!.onclick=()=>closeMinigame(this);};
     root.innerHTML=""; render();
   }
-  warmthPuzzle(m: Marker, entry: StoryData["optionalMemories"][number]) {
-    modalOpen = true;
-    const items = ["Pocket warmer", "Pocket warmer", "Pocket warmer"];
-    const placed: (number | null)[] = [null, null, null];
-    let held: number | null = null;
-    const show = () => {
-      root.innerHTML = `<article class="panel wide"><div class="eyebrow">October 23 · chilly outside</div><h2>Make sure everyone stays warm</h2><p>Pick up a hand warmer, then drop it into one of the coat pockets.</p><div class="palette-board warm-pockets">${["Aaron’s coat", "Raiven’s wrap", "One spare for the walk back"].map((name,i)=>`<button class="palette-slot" data-pocket="${i}"><small>${name}</small>${placed[i]===null?"Empty pocket":"🧤 Warm and ready"}</button>`).join("")}</div><div class="palette-tray">${items.map((_,i)=>`<button class="palette-chip ${held===i?"selected":""}" data-warmer="${i}">🧤 ${placed.includes(i)?"Placed":"Hand warmer"}</button>`).join("")}</div><div class="actions"><button class="btn" id="warm-finish">Pack up</button><button class="btn secondary" id="warm-leave">Leave for now</button></div></article>`;
-      root.querySelectorAll<HTMLButtonElement>("[data-warmer]").forEach(b=>b.onclick=()=>{held=Number(b.dataset.warmer);show();});
-      root.querySelectorAll<HTMLButtonElement>("[data-pocket]").forEach(b=>b.onclick=()=>{if(held===null)return;const i=Number(b.dataset.pocket);const prev=placed.indexOf(held);if(prev>=0)placed[prev]=null;placed[i]=held;held=null;show();});
-      root.querySelector<HTMLButtonElement>("#warm-leave")!.onclick=()=>closeMinigame(this);
-      root.querySelector<HTMLButtonElement>("#warm-finish")!.onclick=()=>{if(placed.every(x=>x!==null)){this.completeMarker(m,entry.memory);this.unlockAchievement(entry.achievement);panel("Warm enough",`<div class="eyebrow">A small kindness</div><h2>All set.</h2><p>You tuck the spare warmer away for the walk back to the reception lights.</p>`,[{label:"Back outside",action:()=>this.refreshHud()}]);}else toast("There are still cold pockets to think about.");};
-    };
-    show();
-  }
   colorPuzzle(m: Marker, entry: StoryData["optionalMemories"][number]) {
-    modalOpen = true;
+    setModalOpen(true);
     const colors = [
       { id: "orange", label: "Burnt orange", color: "#bd6337" },
       { id: "gold", label: "Warm gold", color: "#d8ad61" },
@@ -1574,7 +1565,14 @@ class KingdomScene extends Phaser.Scene {
       root.querySelectorAll<HTMLElement>("[data-slot]").forEach(s=>s.onclick=()=>{if(!selected)return; const i=Number(s.dataset.slot); const old=slots.indexOf(selected); if(old>=0) slots[old]=null; slots[i]=selected; selected=""; render();});
       root.querySelector<HTMLButtonElement>("#palette-leave")!.onclick=()=>closeMinigame(this);
       root.querySelector<HTMLButtonElement>("#palette-check")!.onclick=()=>{
-        if(slots.every(Boolean) && slots.join(",")==="orange,gold,blue") { this.completeMarker(m,entry.memory); this.unlockAchievement(entry.achievement); panel("The colors come back",`<div class="eyebrow">A little piece of the day</div><h2>There it is.</h2><p>The orange, the warm flowers, and Aaron’s bright blue suit—somehow they all belong in the same picture.</p>`,[{label:"Back to the wedding",action:()=>this.refreshHud()}]); }
+        if(slots.every(Boolean) && slots.join(",")==="orange,gold,blue") {
+          this.completeMarker(m,entry.memory); this.unlockAchievement(entry.achievement);
+          const photoPath="/assets/photos/wedding/wedding-reception.jpg";
+          void fetch(photoPath,{method:"HEAD"}).then(res=>{
+            const photo=res.ok?`<img class="memory-photo" src="${photoPath}" alt="Wedding reception lights and table details">`:`<p class="small">Add <span class="mark">public/assets/photos/wedding/wedding-reception.jpg</span> to show your reception photo here.</p>`;
+            panel("The colors come back",`<div class="eyebrow">A little piece of the day</div><h2>There it is.</h2><p>The orange, the warm flowers, and Aaron’s bright blue suit—somehow they all belong in the same picture.</p>${photo}`,[{label:"Back to the wedding",action:()=>this.refreshHud()}]);
+          }).catch(()=>panel("The colors come back",`<div class="eyebrow">A little piece of the day</div><h2>There it is.</h2><p>The orange, the warm flowers, and Aaron’s bright blue suit—somehow they all belong in the same picture.</p><p class="small">Add <span class="mark">public/assets/photos/wedding/wedding-reception.jpg</span> to show your reception photo here.</p>`,[{label:"Back to the wedding",action:()=>this.refreshHud()}]));
+        }
         else toast(slots.some(x=>!x)?"Fill each place first.":"Not quite. Try arranging the pieces another way.");
       };
     };
@@ -1613,9 +1611,9 @@ class KingdomScene extends Phaser.Scene {
     if (this.levelIndex === 2) {
       const next: Record<string, string> = {
         pregnancy: "inventory",
-        inventory: "toybox",
-        toybox: "family-timeline",
-        "family-timeline": "after-bedtime",
+        inventory: "family-timeline",
+        "family-timeline": "toybox",
+        toybox: "after-bedtime",
         "after-bedtime": "midnight",
         midnight: "quiet",
       };
@@ -1630,8 +1628,7 @@ class KingdomScene extends Phaser.Scene {
       const next: Record<string, string> = {
         callback: "echo",
         echo: "guard",
-        guard: "boss",
-        boss: "choice",
+        guard: "choice",
       };
       if (next[m.id]) unlock(next[m.id]);
     }
@@ -1658,6 +1655,7 @@ class KingdomScene extends Phaser.Scene {
         line,
         choices,
         focus,
+        "/assets/photos/memories/first-date.jpg",
       );
       const finishMeet = () => {
         this.completeMarker(m, "First date: Chipotle was the plan, Jersey Mike’s was the stop, and then you walked through Heritage Park together.");
@@ -1760,8 +1758,11 @@ class KingdomScene extends Phaser.Scene {
   }
   levelThree(m: Marker) {
     if (m.id === "pregnancy") {
-      const finish=(line:string)=>{this.completeMarker(m,"After their wedding, Raiven tells Aaron they are expecting their first baby. The news changes the shape of the future they had been picturing.");this.addMemory(line);toast("The first little heartbeat joins the story.");};
-      const response=(line:string)=>coupleScene("Beautiful Chaos · the first pregnancy · imagined dialogue","A new little future","Raiven",line,[{label:"Hold her close",action:()=>finish("The first pregnancy announcement: the moment Aaron learned he was going to be a dad.")}],"raiven","/assets/scenes/pregnancy-reveal.png");
+      const finish=(line:string)=>familyDialogueScene("A little later · Naomi’s first day · imagined dialogue","Hello, Naomi","Aaron","She’s so tiny. I can’t believe we get to take her home.",[
+        {label:"I’m going to learn all the buttons on this car seat.",action:()=>{this.completeMarker(m,"The Beautiful Chaos opens with Raiven’s positive pregnancy test, then Naomi’s arrival and Aaron meeting his daughter for the first time.");this.addMemory(line);toast("The first little heartbeat is in your arms now.");}},
+        {label:"I already love this little person so much.",kind:"secondary",action:()=>{this.completeMarker(m,"The Beautiful Chaos opens with Raiven’s positive pregnancy test, then Naomi’s arrival and Aaron meeting his daughter for the first time.");this.addMemory(line);toast("The first little heartbeat is in your arms now.");}},
+      ],"/assets/scenes/pregnancy-reveal.png");
+      const response=(line:string)=>coupleScene("Beautiful Chaos · the first pregnancy · imagined dialogue","A new little future","Raiven",line,[{label:"Hold her close",action:()=>finish("The first pregnancy announcement, followed by the day Aaron met Naomi and became a dad.")}],"raiven","/assets/scenes/pregnancy-reveal.png");
       coupleScene("Beautiful Chaos · after the wedding · imagined dialogue","The first little heartbeat","Raiven","I took the test twice. I think we’re going to have a baby.",[
         {label:"Wait—really? I’m going to be a dad?",action:()=>coupleScene("The first pregnancy · imagined dialogue","I’m going to be a dad","Aaron","I’m happy. I’m a little stunned. Mostly I want to hug you.",[{label:"Tell me what you’re thinking",action:()=>response("That’s what I was hoping you’d say. I’m excited—and yes, a little stunned too.")}],"aaron","/assets/scenes/pregnancy-reveal.png")},
         {label:"Come here. We’ll figure it out together.",kind:"secondary",action:()=>coupleScene("The first pregnancy · imagined dialogue","One step at a time","Aaron","I don’t have the whole plan yet. But I know I want to do this with you.",[{label:"Tell me what you’re thinking",action:()=>response("Me too. One step at a time. I can’t believe we’re going to be somebody’s parents.")}],"aaron","/assets/scenes/pregnancy-reveal.png")},
@@ -1772,12 +1773,8 @@ class KingdomScene extends Phaser.Scene {
       if(!this.markers.find(x=>x.id==="pregnancy")?.done){toast("Start with the first little heartbeat.");return;}
       if(!m.done)familyPackGame(this,m);return;
     }
-    if (m.id === "toybox") {
-      if(!this.markers.find(x=>x.id==="inventory")?.done){toast("Get the family outing bag ready first.");return;}
-      if(!m.done)toyboxCleanup(this,m);return;
-    }
     if (m.id === "family-timeline") {
-      if(!this.markers.find(x=>x.id==="toybox")?.done){toast("Finish the living-room floor patrol first.");return;}
+      if(!this.markers.find(x=>x.id==="inventory")?.done){toast("Get the family outing bag ready first.");return;}
       let stage=0;
       const photoNaomi="/assets/photos/family/family-with-mom.jpg",photoFamily="/assets/photos/family/family-with-everyone.jpg";
       const finish=()=>{this.completeMarker(m,"A chronological family timeline moves through Naomi and Matthew as babies, Naomi as a toddler, Maliyah’s arrival, Matthew and Maliyah as toddlers, and Naomi as a preschooler.");this.unlockAchievement("THEY GROW SO FAST");};
@@ -1809,6 +1806,10 @@ class KingdomScene extends Phaser.Scene {
         ],photoFamily);return;}
       };
       show();return;
+    }
+    if (m.id === "toybox") {
+      if(!this.markers.find(x=>x.id==="family-timeline")?.done){toast("Follow Naomi, Matthew, and Maliyah as they grow first.");return;}
+      if(!m.done)toyboxCleanup(this,m);return;
     }
     if (m.id === "after-bedtime") {
       if(!this.markers.find(x=>x.id==="family-timeline")?.done){toast("Meet the kids along the timeline first.");return;}
@@ -1842,10 +1843,25 @@ class KingdomScene extends Phaser.Scene {
       ],"raiven","/assets/realm-4-seasons.jpg");return;
     }
     if (m.id === "invisible-load") {
-      invisibleLoadPlatformer({ root, toast, close: () => closeMinigame(this) }, () => {
+      invisibleLoadPlatformer({ root, toast, close: () => {
+        closeMinigame(this);
+        // The load challenge uses its own four-floor scaffold. Return the
+        // Phaser character to the clear lower route before resuming Level 4.
+        // Land on the broad lower route between the two nearby ledges, beside
+        // the next story marker, so Aaron never resumes beneath a platform.
+        const safeX = 2230, safeY = 690;
+        const body = this.player.body as Phaser.Physics.Arcade.Body;
+        this.player.setPosition(safeX, safeY).setRotation(0);
+        body.enable = true;
+        body.reset(safeX, safeY);
+        body.setVelocity(0, 0).setAcceleration(0, 0);
+        this.checkpointX = Math.max(this.checkpointX, safeX);
+        this.cameras.main.centerOn(safeX, safeY);
+        this.save();
+      } }, () => {
         coupleScene("Through Every Season · after the full day · imagined dialogue", "That was a lot to hold", "Aaron", "I kept moving from one thing to the next, and I can see how much of that list you carry without anyone asking.", [
-          { label: "I need to take more of it on without waiting to be asked", action: () => coupleScene("Through Every Season · a real conversation", "Coffee isn’t the whole answer", "Raiven", "Coffee got you through the day. It doesn’t make the work disappear, and I don’t want us to pretend one good day fixes the pattern.", [{ label: "Let’s make a plan and keep checking in", action: () => { this.completeMarker(m, "The Invisible Load boss has Aaron move through breakfast, an outing, dishes, laundry, homework, and bedtime while managing limited energy. The follow-up names accountability and shared work; coffee helps for a moment, but it does not solve the uneven load."); this.unlockAchievement("SHARED WORK, SHARED HOME"); } }], "raiven", "/assets/realm-4-seasons.jpg") },
-          { label: "Show me what I’ve been missing", kind: "secondary", action: () => coupleScene("Through Every Season · a real conversation", "Let’s keep talking about it", "Raiven", "I can tell you what’s on my mind. I need you to keep noticing it too, and to follow through after we talk.", [{ label: "I’ll keep showing up for the work", action: () => { this.completeMarker(m, "The Invisible Load boss has Aaron move through breakfast, an outing, dishes, laundry, homework, and bedtime while managing limited energy. The follow-up names accountability and shared work; coffee helps for a moment, but it does not solve the uneven load."); this.unlockAchievement("SHARED WORK, SHARED HOME"); } }], "raiven", "/assets/realm-4-seasons.jpg") },
+          { label: "I need to take more of it on without waiting to be asked", action: () => coupleScene("Through Every Season · a real conversation", "Coffee isn’t the whole answer", "Raiven", "Coffee got you through the day. It doesn’t make the work disappear, and I don’t want us to pretend one good day fixes the pattern.", [{ label: "Let’s make a plan and keep checking in", action: () => { this.completeMarker(m, "The Invisible Load challenge has Aaron balance eight household tasks, repeat potty and diaper care, and intentional play while the kids move through the house and sometimes undo a finished chore. The follow-up names accountability and shared work; coffee helps for a moment, but it does not solve the uneven load."); this.unlockAchievement("SHARED WORK, SHARED HOME"); } }], "raiven", "/assets/realm-4-seasons.jpg") },
+          { label: "Show me what I’ve been missing", kind: "secondary", action: () => coupleScene("Through Every Season · a real conversation", "Let’s keep talking about it", "Raiven", "I can tell you what’s on my mind. I need you to keep noticing it too, and to follow through after we talk.", [{ label: "I’ll keep showing up for the work", action: () => { this.completeMarker(m, "The Invisible Load challenge has Aaron balance eight household tasks, repeat potty and diaper care, and intentional play while the kids move through the house and sometimes undo a finished chore. The follow-up names accountability and shared work; coffee helps for a moment, but it does not solve the uneven load."); this.unlockAchievement("SHARED WORK, SHARED HOME"); } }], "raiven", "/assets/realm-4-seasons.jpg") },
         ], "aaron", "/assets/realm-4-seasons.jpg");
       });
       return;
@@ -1905,55 +1921,12 @@ class KingdomScene extends Phaser.Scene {
       }
       this.selectAbility("Promise Guard");
       this.completeMarker(m, "Promise Guard is readied before the final encounter; commitment becomes an action that protects the next step.");
-      toast("Promise Guard is ready. The Unwritten is waiting.");
+      toast("Promise Guard is ready. The next page is open.");
       return;
     }
-    if (m.id === "boss") {
-      if (!this.bossPhase) {
-        this.spawnBoss();
-        this.bossPhase = 1;
-        panel(
-          "The Unwritten",
-          `<div class="eyebrow">Phase one</div><h2>Uncertainty takes a shape</h2><p>Its sweeping lines are telegraphed in gold. Dodge through the pulse, then counterattack. No part of the couple is the enemy here.</p>`,
-          [{ label: "Face the encounter", action: () => {} }],
-        );
-        return;
-      }
-      const boss = this.enemies
-        .getChildren()
-        .find((e: any) => e.getData("boss")) as
-        Phaser.Physics.Arcade.Sprite | undefined;
-      if (boss) {
-        toast(
-          "The Unwritten is still here. Attack with J or a left click; dodge with Shift.",
-        );
-        return;
-      }
-      if (this.bossPhase < 3) {
-        toast("The second phase is still forming.");
-        return;
-      }
-      this.completeMarker(
-        m,
-        "The Unwritten: uncertainty is faced through a fair, two-phase encounter.",
-      );
-      panel(
-        "The Unwritten fades",
-        `<div class="eyebrow">One page left</div><h2>The next chapter is yours.</h2><p>The hard parts don’t vanish. You still get to choose what you build next.</p>`,
-        [
-          {
-            label: "Continue together",
-            action: () => {
-              this.markers.find((x) => x.id === "choice")!.active = true;
-              toast("A new page waits ahead.");
-            },
-          },
-        ],
-      );
-    }
     if (m.id === "choice") {
-      if (!this.markers.find((x) => x.id === "boss")?.done) {
-        toast("The next page opens after the encounter.");
+      if (!this.markers.find((x) => x.id === "guard")?.done) {
+        toast("The next page opens after the crossing.");
         return;
       }
       const chooseTogether = () => coupleScene(
@@ -2028,27 +2001,6 @@ class KingdomScene extends Phaser.Scene {
       ],
     );
   }
-  spawnEnemies(count: number, boss: boolean) {
-    for (let i = 0; i < count; i++) {
-      const x = this.player.x + 120 + i * 48,
-        y = this.player.y + (i % 2 ? 90 : -80);
-      const e = this.physics.add.sprite(x, y, "enemy");
-      e.setCircle(18, 13, 39).setDepth(4);
-      e.setTint(boss ? 0xe9af75 : 0xaaa5bc);
-      e.setData("hp", boss ? 18 : 3);
-      e.setData("boss", boss);
-      e.setData("attackAt", 0);
-      this.enemies.add(e);
-    }
-  }
-  spawnBoss() {
-    const e = this.physics.add.sprite(1220, 470, "enemy");
-    e.setCircle(24, 8, 34).setScale(1.5).setDepth(4).setTint(0xb89bd5);
-    e.setData("hp", 22);
-    e.setData("boss", true);
-    e.setData("attackAt", 0);
-    this.enemies.add(e);
-  }
   defeatAllEnemies() {
     this.enemies.getChildren().forEach((e: any) => e.destroy());
   }
@@ -2083,11 +2035,8 @@ class KingdomScene extends Phaser.Scene {
           duration: 90,
         });
         if (hp <= 0) {
-          const isBoss = e.getData("boss");
           e.destroy();
-          if (isBoss) {
-            toast("The Unwritten’s shape begins to shift.");
-          } else toast("A toy-shadow pops into a harmless puff.");
+          toast("A toy-shadow pops into a harmless puff.");
         }
       }
     });
@@ -2170,8 +2119,7 @@ class KingdomScene extends Phaser.Scene {
             marker,
             "Promise Guard carries the player through the open crossing.",
           );
-          this.markers.find((m) => m.id === "boss")!.active = true;
-          toast("The Unwritten takes shape.");
+          toast("The next page is open.");
         }
       }
       return;
@@ -2211,40 +2159,6 @@ class KingdomScene extends Phaser.Scene {
     }
     toast("Unlock an ability before using Q.");
   }
-  enemyTouch(raw: any) {
-    const e = raw as Phaser.Physics.Arcade.Sprite;
-    if (!e.active || this.hurtCooldown > 0) return;
-    this.hurtCooldown = 0.85;
-    if (this.guardTimer > 0) {
-      this.guardTimer = 0;
-      e.setTint(0xecd18e);
-      this.player.setVelocityX(this.player.x < e.x ? -170 : 170);
-      toast("Promise Guard absorbed the strike.");
-    } else {
-      this.hp = Math.max(0, this.hp - 1);
-      this.player.setTint(0xff7777);
-      this.player.setVelocity(this.player.x < e.x ? -260 : 260, -230);
-      this.time.delayedCall(260, () => this.player.clearTint());
-      toast(`ENEMY HIT · ${this.hp} / ${this.maxHp} hearts`);
-    }
-    this.refreshHud();
-    if (this.hp === 0) {
-      this.showGameOver("The last heart went out. Take a breath, then choose what comes next.");
-    }
-  }
-  takeCourseHit() {
-    if (this.hurtCooldown > 0 || !this.player?.active) return;
-    this.hurtCooldown = 1.05;
-    this.hp = Math.max(0, this.hp - 1);
-    this.player.setTint(0xff9a87);
-    this.player.setVelocity(this.player.x < this.checkpointX + 80 ? 230 : -230, -300);
-    this.time.delayedCall(230, () => this.player.clearTint());
-    this.cameras.main.shake(110, 0.0028);
-    if (this.hp === 0) {
-      this.showGameOver("The last heart went out. Take a breath, then choose what comes next.");
-    } else toast(`SPIKE HIT · ${this.hp} / ${this.maxHp} hearts`);
-    this.refreshHud();
-  }
   showGameOver(message: string) {
     if (this.gameOverShown) return;
     this.gameOverShown = true;
@@ -2252,23 +2166,23 @@ class KingdomScene extends Phaser.Scene {
     this.physics.world.pause();
     panel(
       "Out of hearts",
-      `<div class="eyebrow">Catch your breath</div><h2>That was a rough stretch.</h2><p>${esc(message)}</p><p class="small">Your journey pauses here. Retry this realm with full hearts, or leave the adventure for now.</p>`,
+      `<div class="eyebrow">Catch your breath</div><h2>That was a rough stretch.</h2><p>${esc(message)}</p><p class="small">Your story progress is safe. Pick up again at the last checkpoint, or leave the adventure for now.</p>`,
       [
-        { label: "Retry this level", action: () => { this.physics.world.resume(); this.gameOverShown = false; this.pausedByMenu = false; this.hp = this.maxHp; this.loadLevel(this.levelIndex); } },
+        { label: "Retry from checkpoint", action: () => { this.physics.world.resume(); this.gameOverShown = false; this.pausedByMenu = false; this.hp = this.maxHp; this.player.setPosition(this.checkpointX, 660); (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0); this.refreshHud(); this.save(); } },
         { label: "Quit to title", kind: "secondary", action: () => { this.physics.world.resume(); this.gameOverShown = false; this.pausedByMenu = false; this.started = false; this.companion.setVisible(false); this.drawTitleWorld(); titleScreen(); } },
       ],
     );
   }
   update(_t: number, dt: number) {
+    if (!this.started || modalOpen || this.pausedByMenu) {
+      interactPrompt.classList.remove("show");
+      return;
+    }
     if (this.started && this.companion?.visible) {
       const targetX = this.player.x - 46;
       const targetY = this.player.y - 20 + Math.sin(this.time.now / 330) * 5;
       this.companion.x = Phaser.Math.Linear(this.companion.x, targetX, 0.08);
       this.companion.y = Phaser.Math.Linear(this.companion.y, targetY, 0.08);
-    }
-    if (!this.started || modalOpen || this.pausedByMenu) {
-      interactPrompt.classList.remove("show");
-      return;
     }
     if (this.time.now > this.hudAt) {
       this.hudAt = this.time.now + 160;
@@ -2294,38 +2208,15 @@ class KingdomScene extends Phaser.Scene {
         return;
       }
     }
-    if (
-      this.levelIndex === 4 &&
-      this.bossPhase > 0 &&
-      this.bossPhase < 3 &&
-      !alive.some((x: any) => x.getData("boss"))
-    ) {
-      if (this.bossPhase === 1) {
-        this.bossPhase = 2;
-        this.spawnBoss();
-        const b = this.enemies.getChildren()[
-          this.enemies.getChildren().length - 1
-        ] as Phaser.Physics.Arcade.Sprite;
-        b.setData("hp", 12);
-        b.setScale(1.25);
-        toast("Phase two: use 3 + Q for Together, or 4 + Q for Steadfast.");
-      } else if (this.bossPhase === 2) {
-        this.bossPhase = 3;
-        toast("The Unwritten breaks into light. Return to the marker.");
-      }
-    }
     const delta = dt / 1000;
     this.attackCooldown = Math.max(0, this.attackCooldown - delta);
-    this.hurtCooldown = Math.max(0, this.hurtCooldown - delta);
     this.dashTimer = Math.max(0, this.dashTimer - delta);
     this.guardTimer = Math.max(0, this.guardTimer - delta);
     this.swingTimer = Math.max(0, this.swingTimer - delta);
     if (this.player.y > 850) {
-      this.takeCourseHit();
-      if (this.hp > 0) {
-        this.player.setPosition(this.checkpointX, 660);
-        (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
-      }
+      this.player.setPosition(this.checkpointX, 660);
+      (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+      toast("Back on the path.");
     }
     const checkpoint = this.courseCheckpoints.filter((x) => this.player.x >= x).pop();
     if (checkpoint && checkpoint > this.checkpointX) {
@@ -2388,7 +2279,7 @@ class KingdomScene extends Phaser.Scene {
         e.x,
         e.y,
       );
-      const range = e.getData("boss") ? 145 : 76;
+      const range = 76;
       if (d > range) {
         const angle = Phaser.Math.Angle.Between(
           e.x,
@@ -2397,8 +2288,8 @@ class KingdomScene extends Phaser.Scene {
           this.player.y,
         );
         e.setVelocity(
-          Math.cos(angle) * (e.getData("boss") ? 78 : 58),
-          Math.sin(angle) * (e.getData("boss") ? 78 : 58),
+          Math.cos(angle) * 58,
+          Math.sin(angle) * 58,
         );
       } else {
         e.setVelocity(0, 0);
@@ -2414,18 +2305,6 @@ class KingdomScene extends Phaser.Scene {
             alpha: 0,
             duration: 560,
             onComplete: () => ring.destroy(),
-          });
-          this.time.delayedCall(560, () => {
-            if (
-              e.active &&
-              Phaser.Math.Distance.Between(
-                this.player.x,
-                this.player.y,
-                e.x,
-                e.y,
-              ) < 82
-            )
-              this.enemyTouch(e);
           });
         }
       }

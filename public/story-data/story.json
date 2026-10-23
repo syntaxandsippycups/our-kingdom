@@ -65,28 +65,12 @@
       "achievement": "QUESTIONABLE PROPOSAL"
     },
     {
-      "id": "warmth",
-      "title": "Hand warmers for the bride",
-      "eyebrow": "October 23, 2021 · a chilly ceremony",
-      "body": "It was cold outside, and Raiven was freezing in her strapless dress. While everyone gathered to pray, hand warmers started making their way to the bride. The leaves waited until after the honeymoon to change color.",
-      "memory": "The cold outdoor ceremony, hand warmers, and late-arriving fall leaves.",
-      "achievement": "FOR BETTER OR FOR FREEZING"
-    },
-    {
       "id": "colors",
       "title": "The blue suits stay",
       "eyebrow": "A little wedding-day debate",
       "body": "Raiven picked the fall colors. Aaron picked bright blue suits. They did not exactly match—but the blue suits made it into the wedding photos, and they still make you smile.",
       "memory": "The friendly color dispute: a fall palette and Aaron’s bright blue wedding-party suits.",
       "achievement": "THE BLUE SUITS STAY"
-    },
-    {
-      "id": "honeymoon",
-      "title": "The mystery daiquiri",
-      "eyebrow": "Bolongo Bay · the daiquiri mystery",
-      "body": "Raiven found the best virgin strawberry daiquiris at Bolongo Bay and had several every day. She has never found one that good back home. Aaron still suspects there was a little something extra in them.",
-      "memory": "The honeymoon daiquiri mystery at Bolongo Bay Beach Resort.",
-      "achievement": "THE MYSTERY DAIQUIRI"
     },
     {
       "id": "number-game",
@@ -119,22 +103,6 @@
       "body": "The children climb aboard for horsey rides with Dad. A little home becomes a whole adventure when everyone is together.",
       "memory": "The kids’ horsey rides with Dad.",
       "achievement": "HORSEY EXPRESS"
-    },
-    {
-      "id": "seafood",
-      "title": "Three to one",
-      "eyebrow": "Family vote",
-      "body": "Aaron does not like seafood. Raiven does, and the children are increasingly willing to eat fish. The vote is becoming three to one, and Aaron is being gently outnumbered. The children are increasingly willing to eat fish, and the vote keeps moving against Aaron.",
-      "memory": "The family seafood vote: Aaron is being outnumbered three to one.",
-      "achievement": "OUTVOTED: SEAFOOD EDITION"
-    },
-    {
-      "id": "office",
-      "title": "The Office of Shame",
-      "eyebrow": "The Office of Shame · Aaron’s setup rules apply",
-      "body": "The desk can get pretty crowded, but the tower and cables have one proper home: the left side. Some rules are sacred.",
-      "memory": "The Office of Shame: messy desk, computer tower and cables kept on the left.",
-      "achievement": "CABLE MANAGEMENT NOT FOUND"
     },
     {
       "id": "clarinet",
